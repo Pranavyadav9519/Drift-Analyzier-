@@ -5,6 +5,8 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+const { JWT_SECRET, FRONTEND_ORIGIN } = require('./config');
+
 const authRoutes = require('./routes/auth');
 const behaviorRoutes = require('./routes/behavior');
 const riskRoutes = require('./routes/risk');
@@ -12,8 +14,13 @@ const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 
+// Warn if the default JWT secret is in use
+if (JWT_SECRET === 'sentinel_secret') {
+  console.warn('⚠️  WARNING: JWT_SECRET is using the default fallback value. Set a strong secret before deploying to production.');
+}
+
 // Middleware
-app.use(cors());
+app.use(cors({ origin: FRONTEND_ORIGIN }));
 app.use(express.json());
 
 // Global rate limiter — 200 requests per 15 minutes per IP across all API routes

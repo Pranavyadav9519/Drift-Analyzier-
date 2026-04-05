@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from utils.feature_extractor import URLFeatureExtractor
 from utils.metrics import MetricsTracker
 from utils.privacy import PrivacyManager
+from config import PHISHING_DETECTION_THRESHOLD
 
 # ── Optional trained model ──────────────────────────────────────────────────
 try:
@@ -49,8 +50,8 @@ app = Flask(__name__)
 metrics = MetricsTracker()
 privacy = PrivacyManager()
 
-RISK_THRESHOLD_HIGH = 0.70
-RISK_THRESHOLD_MEDIUM = 0.40
+RISK_THRESHOLD_HIGH = PHISHING_DETECTION_THRESHOLD['high']
+RISK_THRESHOLD_MEDIUM = PHISHING_DETECTION_THRESHOLD['medium']
 
 
 def _rule_based_score(features: dict) -> float:
