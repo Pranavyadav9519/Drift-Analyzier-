@@ -1,0 +1,54 @@
+{
+  "model_name": "sentinel-zero-behavioral-anomaly-detector",
+  "model_type": "IsolationForest",
+  "algorithm": "Isolation Forest (unsupervised anomaly detection)",
+  "framework": "scikit-learn \u2192 ONNX",
+  "exported_at": "2026-04-05T19:03:28.704259+00:00",
+  "features": [
+    {
+      "index": 0,
+      "name": "loginHour",
+      "type": "float32",
+      "range": "0\u201323"
+    },
+    {
+      "index": 1,
+      "name": "loginDayOfWeek",
+      "type": "float32",
+      "range": "0\u20136 (0=Sun)"
+    },
+    {
+      "index": 2,
+      "name": "isNewDevice",
+      "type": "float32",
+      "range": "0 or 1"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "label",
+      "description": "-1 = anomaly, 1 = normal"
+    },
+    {
+      "name": "raw_scores",
+      "description": "Anomaly score (more negative = more anomalous)"
+    }
+  ],
+  "hyperparameters": {
+    "n_estimators": 100,
+    "contamination": 0.1,
+    "max_samples": "auto",
+    "random_state": 42
+  },
+  "training_data": {
+    "source": "Synthetic data (office-hours behavioral patterns)",
+    "description": "500 normal logins (weekdays 8am\u20136pm, known device) + 50 anomalous logins (0am\u20136am, new device)",
+    "total_samples": 550,
+    "feature_count": 3
+  },
+  "onnx_opset": {
+    "ai.onnx": 12,
+    "ai.onnx.ml": 3
+  },
+  "file": "isolation_forest.onnx"
+}
