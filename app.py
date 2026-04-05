@@ -48,8 +48,17 @@ except ImportError:
 
 # ── Flask app ───────────────────────────────────────────────────────────────
 app = Flask(__name__)
-# Allow the browser extension and local dashboard to call the API
-CORS(app, origins=["chrome-extension://*", "null", "http://localhost:*", "http://127.0.0.1:*"])
+# Allow the browser extension and local dashboard to call the API.
+# Chrome extensions bypass CORS via host_permissions in manifest.json;
+# these origins cover the local static dashboard and the React frontend.
+CORS(app, origins=[
+    "http://localhost:3000",   # React behavior dashboard
+    "http://localhost:5050",   # phishing API itself (Swagger / testing)
+    "http://localhost:8080",   # static HTML phishing dashboard
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5050",
+    "http://127.0.0.1:8080",
+])
 metrics = MetricsTracker()
 privacy = PrivacyManager()
 
