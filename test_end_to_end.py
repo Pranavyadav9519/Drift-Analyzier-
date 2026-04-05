@@ -30,6 +30,12 @@ PASS = "\033[92m✅ PASS\033[0m"
 FAIL = "\033[91m❌ FAIL\033[0m"
 SKIP = "\033[93m⏭  SKIP\033[0m"
 
+# Tunable constants
+FEATURE_EXTRACTION_BENCHMARK_ITERATIONS = 10
+FEATURE_EXTRACTION_MAX_MS = 100
+API_TIMEOUT_SECONDS = 3
+API_LATENCY_SLA_MS = 200
+
 results: list[tuple[str, bool, str]] = []
 
 
@@ -93,10 +99,10 @@ def test_feature_extraction() -> None:
 
     # Speed
     start = time.perf_counter()
-    for _ in range(10):
+    for _ in range(FEATURE_EXTRACTION_BENCHMARK_ITERATIONS):
         URLFeatureExtractor("http://example-phishing.xyz/login").extract_features()
-    avg_ms = (time.perf_counter() - start) / 10 * 1000
-    record("Avg feature extraction < 100 ms", avg_ms < 100, f"{avg_ms:.1f} ms")
+    avg_ms = (time.perf_counter() - start) / FEATURE_EXTRACTION_BENCHMARK_ITERATIONS * 1000
+    record(f"Avg feature extraction < {FEATURE_EXTRACTION_MAX_MS} ms", avg_ms < FEATURE_EXTRACTION_MAX_MS, f"{avg_ms:.1f} ms")
 
 
 # ── 3. Privacy ───────────────────────────────────────────────────────────────
@@ -109,8 +115,8 @@ def test_privacy() -> None:
     record("No external calls on init", pm.verify_no_external_api_calls())
 
     anon = pm.anonymize_url("https://my-sensitive-domain.com/path?token=secret123")
-    record("Domain hidden after anonymise", "my-sensitive-domain.com" not in anon)
-    record("Token hidden after anonymise", "secret123" not in anon)
+    record("Domain hidden after anonymize", "my-sensitive-domain.com" not in anon)
+    record("Token hidden after anonymize", "secret123" not in anon)
 
     pii_text = "User john@example.com from 192.168.1.1 logged in"
     stripped = pm.strip_pii(pii_text)
@@ -206,7 +212,7 @@ def test_api_live(base_url: str = "http://localhost:5050") -> None:
         import urllib.error
 
         # Health check
-        with urllib.request.urlopen(f"{base_url}/", timeout=3) as resp:
+        with urllib.request.urlopen(f"{base_url}/", timeout=API_TIMEOUT_SECONDS) as resp:
             body = json.loads(resp.read())
         record("GET / returns 200", True, body.get("name", ""))
 
@@ -218,7 +224,7 @@ def test_api_live(base_url: str = "http://localhost:5050") -> None:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=API_TIMEOUT_SECONDS) as resp:
             data = json.loads(resp.read())
         record("POST /check-url returns verdict", "verdict" in data, data.get("verdict"))
         record("Phishing URL flagged as PHISHING or SUSPICIOUS",
@@ -228,7 +234,7 @@ def test_api_live(base_url: str = "http://localhost:5050") -> None:
                0.0 <= data.get("risk_score", -1) <= 1.0,
                f"score={data.get('risk_score')}")
         record("Latency reported < 200 ms",
-               data.get("latency_ms", 9999) < 200,
+               data.get("latency_ms", 9999) < API_LATENCY_SLA_MS,
                f"{data.get('latency_ms')} ms")
 
         # /check-url — legitimate
@@ -239,19 +245,19 @@ def test_api_live(base_url: str = "http://localhost:5050") -> None:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req2, timeout=5) as resp2:
+        with urllib.request.urlopen(req2, timeout=API_TIMEOUT_SECONDS) as resp2:
             data2 = json.loads(resp2.read())
         record("Legitimate URL not flagged as PHISHING",
                data2.get("verdict") != "PHISHING",
                f"verdict={data2.get('verdict')}")
 
         # /stats
-        with urllib.request.urlopen(f"{base_url}/stats", timeout=3) as resp:
+        with urllib.request.urlopen(f"{base_url}/stats", timeout=API_TIMEOUT_SECONDS) as resp:
             stats = json.loads(resp.read())
         record("GET /stats returns request_count > 0", stats.get("request_count", 0) > 0)
 
         # /privacy-report
-        with urllib.request.urlopen(f"{base_url}/privacy-report", timeout=3) as resp:
+        with urllib.request.urlopen(f"{base_url}/privacy-report", timeout=API_TIMEOUT_SECONDS) as resp:
             priv = json.loads(resp.read())
         record("Privacy report: external_calls == 0", priv.get("external_calls") == 0)
         record("Privacy report: local_processing_only == True",
