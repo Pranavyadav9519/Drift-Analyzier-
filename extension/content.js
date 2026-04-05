@@ -90,17 +90,29 @@ document.addEventListener(
     const href = anchor.href;
     if (!href) return;
     // Only analyse http/https URLs; skip javascript:, data:, vbscript:, #, etc.
+    let parsed;
     try {
-      const parsed = new URL(href);
+      parsed = new URL(href);
       if (!SAFE_TO_ANALYSE_SCHEMES.has(parsed.protocol)) return;
     } catch {
-      return; // malformed URL
+      return; // malformed URL — let the browser handle it naturally
     }
 
+    // Prevent immediate navigation so the async check can complete first
+    event.preventDefault();
+
     const result = await checkUrl(href);
-    if (!result) return;
+    if (!result) {
+      // API unreachable — navigate normally so legitimate links still work
+      window.location.href = href;
+      return;
+    }
     if (HIGH_RISK_VERDICTS.has(result.verdict)) {
+      // Block navigation and warn the user
       showBanner(result.verdict, href, result.risk_score);
+    } else {
+      // SAFE — navigate programmatically
+      window.location.href = href;
     }
   },
   true // capture phase so we intercept before navigation
