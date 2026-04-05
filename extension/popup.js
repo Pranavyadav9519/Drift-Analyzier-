@@ -30,6 +30,10 @@ async function runCheck() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
     });
+    if (resp.status === 403) {
+      setResult("blocked");
+      return;
+    }
     if (!resp.ok) throw new Error("API error");
     const data = await resp.json();
     setResult("success", data);
@@ -48,6 +52,11 @@ function setResult(state, data) {
   if (state === "error") {
     resultBox.classList.add("suspicious");
     resultBox.textContent = "⚠️ Could not reach Sentinel Zero API. Is it running?";
+    return;
+  }
+  if (state === "blocked") {
+    resultBox.classList.add("phishing");
+    resultBox.textContent = "🚫 Check blocked by server (high-risk session). Please log in again.";
     return;
   }
   const { verdict, risk_score, latency_ms } = data;

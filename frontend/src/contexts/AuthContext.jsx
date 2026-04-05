@@ -14,8 +14,13 @@ export function AuthProvider({ children }) {
     const savedToken = localStorage.getItem('sz_token');
     const savedUser = localStorage.getItem('sz_user');
     if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+      try {
+        setToken(savedToken);
+        setUser(JSON.parse(savedUser));
+      } catch {
+        localStorage.removeItem('sz_token');
+        localStorage.removeItem('sz_user');
+      }
     }
     setLoading(false);
   }, []);
