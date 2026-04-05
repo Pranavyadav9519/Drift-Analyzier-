@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # MongoDB
+  # MongoDB — shared data store for behavior anomaly service
   mongo:
     image: mongo:7
     container_name: sentinel_mongo
@@ -11,7 +11,22 @@ services:
       - mongo_data:/data/db
     restart: unless-stopped
 
-  # Python ML Service
+  # ── Layer 2: Phishing Detection API (Flask) ─────────────────────────────────
+  # Analyses URLs with rule-based heuristics + a trained RandomForest model.
+  # Browser extension sends POST /check-url → gets SAFE / SUSPICIOUS / PHISHING verdict.
+  phishing-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentinel_phishing
+    ports:
+      - '5050:5050'
+    environment:
+      - PORT=5050
+    restart: unless-stopped
+
+  # ── Layer 3a: Behavior Anomaly ML Microservice (Python/Flask) ───────────────
+  # Trains an Isolation Forest per user and scores new login events.
   ml-service:
     build: ./ml-service
     container_name: sentinel_ml
@@ -21,7 +36,8 @@ services:
       - PORT=5001
     restart: unless-stopped
 
-  # Node.js Backend
+  # ── Layer 3b: Behavior Anomaly Backend (Node.js/Express) ───────────────────
+  # Handles auth, captures login events, calls ml-service, applies auto-healing.
   backend:
     build: ./backend
     container_name: sentinel_backend
@@ -38,7 +54,8 @@ services:
       - ml-service
     restart: unless-stopped
 
-  # React Frontend
+  # ── Layer 4a: Behavior Dashboard (React) ───────────────────────────────────
+  # Real-time login-anomaly dashboard: risk gauge, alerts, login history.
   frontend:
     build: ./frontend
     container_name: sentinel_frontend
@@ -48,5 +65,17 @@ services:
       - backend
     restart: unless-stopped
 
+  # ── Layer 4b: Phishing Dashboard (static HTML) ─────────────────────────────
+  # Lightweight dashboard served by nginx; polls /stats every 3 s.
+  dashboard:
+    image: nginx:alpine
+    container_name: sentinel_dashboard
+    ports:
+      - '8080:80'
+    volumes:
+      - ./dashboard:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
 volumes:
   mongo_data:
+

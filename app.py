@@ -17,6 +17,7 @@ import sys
 import time
 
 from flask import Flask, request, jsonify, render_template_string
+from flask_cors import CORS
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -47,6 +48,8 @@ except ImportError:
 
 # ── Flask app ───────────────────────────────────────────────────────────────
 app = Flask(__name__)
+# Allow the browser extension and local dashboard to call the API
+CORS(app, origins=["chrome-extension://*", "null", "http://localhost:*", "http://127.0.0.1:*"])
 metrics = MetricsTracker()
 privacy = PrivacyManager()
 
