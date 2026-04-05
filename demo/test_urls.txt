@@ -1,0 +1,34 @@
+# Sentinel Zero Local — Pre-Staged Test URLs
+# Use these during the demo to show verdicts instantly.
+# Format: url | expected_verdict
+
+# ── PHISHING URLs (should score HIGH / PHISHING) ─────────────────────────────
+http://paypal-secure-login.xyz/account/verify?token=abc123
+http://192.168.1.1/banking/login
+http://amazon-account-update.top/signin?redirect=true
+http://microsoft-support-alert.biz/confirm/password
+http://apple-id-suspended.info/verify?session=xyz
+http://secure-banking-login.xyz/auth
+http://ebay-account-verify.top/signin
+http://facebook-security-alert.club/login
+http://login-amazon-secure.xyz/account/update
+http://10.0.0.1/phish/admin
+
+# ── SUSPICIOUS URLs (should score MEDIUM / SUSPICIOUS) ───────────────────────
+http://secure-login.example.cc/verify
+http://account-update.biz/confirm
+http://signin.example.pw/access
+http://my-bank-online.info/home
+http://support-help.example.ws/ticket
+
+# ── LEGITIMATE URLs (should score LOW / SAFE) ─────────────────────────────────
+https://www.google.com
+https://www.github.com/topics/machine-learning
+https://www.wikipedia.org/wiki/Phishing
+https://stackoverflow.com/questions/tagged/python
+https://www.linkedin.com/jobs
+https://www.amazon.com/s?k=laptops
+https://www.apple.com/mac
+https://www.microsoft.com/en-us/windows
+https://www.netflix.com/browse
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
