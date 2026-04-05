@@ -94,13 +94,29 @@ document.addEventListener(
       const parsed = new URL(href);
       if (!SAFE_TO_ANALYSE_SCHEMES.has(parsed.protocol)) return;
     } catch {
-      return; // malformed URL
+      return; // malformed URL — let the browser handle it
     }
 
-    const result = await checkUrl(href);
-    if (!result) return;
-    if (HIGH_RISK_VERDICTS.has(result.verdict)) {
-      showBanner(result.verdict, href, result.risk_score);
+    // Prevent navigation immediately so we can decide after the async check
+    event.preventDefault();
+
+    try {
+      const result = await checkUrl(href);
+      if (!result) {
+        // API unreachable — fail open and navigate as normal
+        window.location.href = href;
+        return;
+      }
+      if (HIGH_RISK_VERDICTS.has(result.verdict)) {
+        // Show the warning banner and do NOT navigate
+        showBanner(result.verdict, href, result.risk_score);
+      } else {
+        // SAFE — navigate programmatically
+        window.location.href = href;
+      }
+    } catch {
+      // Unexpected error — fail open
+      window.location.href = href;
     }
   },
   true // capture phase so we intercept before navigation

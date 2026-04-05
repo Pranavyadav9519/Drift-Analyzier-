@@ -1,18 +1,20 @@
 import time
 import statistics
+from collections import deque
 
 
 SLA_THRESHOLD_MS = 200  # Maximum acceptable response time in milliseconds
+MAX_HISTORY = 1000       # Maximum number of per-request entries kept in memory
 
 
 class MetricsTracker:
     """Tracks latency, detection rates, false positives, and SLA compliance."""
 
     def __init__(self):
-        self.latency: list[float] = []
-        self.detection_rates: list[float] = []
-        self.false_positives: list[bool] = []
-        self.sla_compliance: list[bool] = []
+        self.latency: deque = deque(maxlen=MAX_HISTORY)
+        self.detection_rates: deque = deque(maxlen=MAX_HISTORY)
+        self.false_positives: deque = deque(maxlen=MAX_HISTORY)
+        self.sla_compliance: deque = deque(maxlen=MAX_HISTORY)
         self._request_count: int = 0
         self._phishing_detected: int = 0
         self._start_time: float = time.time()
@@ -79,9 +81,9 @@ class MetricsTracker:
             "false_positive_rate": round(self.false_positive_rate(), 4),
             "uptime_seconds": round(self.uptime_seconds(), 1),
             "sla_threshold_ms": SLA_THRESHOLD_MS,
-            # Raw series kept for backward compatibility
-            "latency": self.latency,
-            "detection_rates": self.detection_rates,
-            "false_positives": self.false_positives,
-            "sla_compliance": self.sla_compliance,
+            # Raw series kept for backward compatibility (last MAX_HISTORY entries)
+            "latency": list(self.latency),
+            "detection_rates": list(self.detection_rates),
+            "false_positives": list(self.false_positives),
+            "sla_compliance": list(self.sla_compliance),
         }

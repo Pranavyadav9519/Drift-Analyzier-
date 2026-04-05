@@ -1,6 +1,7 @@
 // auth middleware — verifies JWT token on protected routes
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { JWT_SECRET } = require('../config');
 
 module.exports = async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -12,7 +13,7 @@ module.exports = async function authMiddleware(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sentinel_secret');
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId).select('-password');
 
     if (!user) return res.status(401).json({ message: 'User not found' });
