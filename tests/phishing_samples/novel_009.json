@@ -1,0 +1,16 @@
+{
+  "id": "novel_009",
+  "type": "novel",
+  "category": "job_scam",
+  "subject": "TCS iBegin: Your Digital Interview Is Scheduled",
+  "sender_display": "TCS HR <hr@tcs-fresher-hiring.xyz>",
+  "sender_email": "hr@tcs-fresher-hiring.xyz",
+  "body_text": "Dear Candidate,\n\nYour TCS digital interview is scheduled. Please pay ₹299 processing fee and confirm at: http://tcs-fresher-hiring.xyz/register\n\nNote: Fee is refundable after joining.",
+  "phishing_url": "http://tcs-fresher-hiring.xyz/register",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.xyz)", "TCS impersonation", "advance fee fraud", "registration fee scam"],
+  "india_specific": true,
+  "target": "TCS"
+}

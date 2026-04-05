@@ -1,0 +1,22 @@
+{
+  "id": "novel_005",
+  "type": "novel",
+  "category": "travel",
+  "subject": "IRCTC Ticket Refund — ₹1,200 Pending in Your Account",
+  "sender_display": "IRCTC Refund Team <refund@irctc-ticket-refund.xyz>",
+  "sender_email": "refund@irctc-ticket-refund.xyz",
+  "body_text": "Dear Passenger,\n\nYour IRCTC ticket cancellation refund of ₹1,200 is pending. To receive your refund, please verify your bank account details at:\n\nhttp://irctc-ticket-refund.xyz/claim\n\nYou will need: PNR number, registered mobile, bank account number.\n\nIRCTC Customer Service",
+  "phishing_url": "http://irctc-ticket-refund.xyz/claim",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.xyz)",
+    "IRCTC impersonation",
+    "bank account harvesting",
+    "refund lure",
+    "domain not irctc.co.in"
+  ],
+  "india_specific": true,
+  "target": "IRCTC"
+}

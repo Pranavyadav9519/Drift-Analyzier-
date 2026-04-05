@@ -1,0 +1,51 @@
+url,label,category,target,description
+http://uidai-aadhaar-update.xyz/verify,phishing,govt_impersonation,UIDAI,Fake Aadhaar update portal
+http://incometax-refund-2024.top/claim,phishing,govt_impersonation,Income Tax India,Fake income tax refund page
+http://epfo-pf-withdrawal.xyz/login,phishing,govt_impersonation,EPFO,Fake PF withdrawal portal
+http://sbi-netbanking-secure.top/signin,phishing,banking,SBI,Fake SBI net banking login
+http://hdfc-account-verify.xyz/secure,phishing,banking,HDFC Bank,Fake HDFC account verification
+http://icici-mobile-banking.club/update,phishing,banking,ICICI Bank,Fake ICICI mobile banking
+http://phonepe-cashback-2024.xyz/claim,phishing,upi_fraud,PhonePe,Fake PhonePe cashback offer
+http://gpay-reward-points.top/redeem,phishing,upi_fraud,Google Pay,Fake Google Pay reward redemption
+http://paytm-kyc-update.club/complete,phishing,upi_fraud,Paytm,Fake Paytm KYC update page
+http://amazon-internship-2024.tk/apply,phishing,job_scam,Amazon,Fake Amazon India internship
+http://tcs-fresher-hiring.xyz/register,phishing,job_scam,TCS,Fake TCS fresher recruitment
+http://infosys-campus-offer.top/accept,phishing,job_scam,Infosys,Fake Infosys campus placement offer
+http://irctc-ticket-refund.xyz/claim,phishing,travel,IRCTC,Fake IRCTC ticket refund portal
+http://irctc-booking-offer.club/discount,phishing,travel,IRCTC,Fake IRCTC discount booking
+http://flipkart-offer-winner.xyz/claim,phishing,ecommerce,Flipkart,Fake Flipkart prize winner
+http://amazon-india-sale.top/deal,phishing,ecommerce,Amazon India,Fake Amazon India flash sale
+http://meesho-seller-login.xyz/account,phishing,ecommerce,Meesho,Fake Meesho seller account page
+http://nit-scholarship-2024.top/apply,phishing,educational,NIT India,Fake NIT scholarship application
+http://iit-admission-portal.xyz/confirm,phishing,educational,IIT,Fake IIT admission confirmation
+http://uidai-mobile-link.club/update,phishing,govt_impersonation,UIDAI,Fake Aadhaar mobile linking
+http://pancard-update-nsdl.xyz/renew,phishing,govt_impersonation,NSDL PAN,Fake PAN card renewal
+http://digilocker-verify.top/signin,phishing,govt_impersonation,DigiLocker,Fake DigiLocker login
+http://rbi-loan-waiver.xyz/apply,phishing,govt_impersonation,RBI,Fake RBI loan waiver scheme
+http://pmkisan-installment.club/check,phishing,govt_impersonation,PM Kisan,Fake PM Kisan installment tracker
+http://axis-bank-offer.top/upgrade,phishing,banking,Axis Bank,Fake Axis Bank card upgrade
+http://kotak-mahindra-login.xyz/secure,phishing,banking,Kotak Mahindra,Fake Kotak net banking
+http://bhim-upi-reward.club/claim,phishing,upi_fraud,BHIM UPI,Fake BHIM UPI reward scheme
+http://snapdeal-cashback.xyz/redeem,phishing,ecommerce,Snapdeal,Fake Snapdeal cashback offer
+http://myntra-sale-offer.top/win,phishing,ecommerce,Myntra,Fake Myntra sale contest
+http://jio-fiber-upgrade.xyz/activate,phishing,telecom,Jio,Fake Jio fiber plan upgrade
+http://airtel-data-bonus.club/claim,phishing,telecom,Airtel,Fake Airtel data bonus offer
+http://vodafone-recharge-free.top/get,phishing,telecom,Vodafone Idea,Fake Vodafone free recharge
+http://wipro-job-offer.xyz/confirm,phishing,job_scam,Wipro,Fake Wipro job offer letter
+http://hcl-recruitment-2024.top/register,phishing,job_scam,HCL,Fake HCL recruitment portal
+http://accenture-joining-date.club/view,phishing,job_scam,Accenture,Fake Accenture joining letter
+http://ioc-recruitment.xyz/apply,phishing,govt_impersonation,Indian Oil,Fake IOC recruitment portal
+http://drdo-scientist-recruitment.top/apply,phishing,govt_impersonation,DRDO,Fake DRDO scientist exam
+http://ssc-result-2024.xyz/check,phishing,govt_impersonation,SSC,Fake SSC exam result page
+http://upsc-admit-card.club/download,phishing,govt_impersonation,UPSC,Fake UPSC admit card download
+http://neet-result-nta.xyz/score,phishing,educational,NTA NEET,Fake NEET result portal
+http://jee-advanced-admit.top/hall-ticket,phishing,educational,JEE Advanced,Fake JEE Advanced hall ticket
+http://sbi-card-reward.xyz/points,phishing,banking,SBI Card,Fake SBI credit card reward
+http://hdfc-emi-waiver.top/apply,phishing,banking,HDFC Bank,Fake HDFC EMI waiver scheme
+http://icici-credit-limit.club/increase,phishing,banking,ICICI Bank,Fake ICICI credit limit offer
+http://amazon-pay-cashback.xyz/get,phishing,upi_fraud,Amazon Pay,Fake Amazon Pay cashback
+http://razorpay-merchant.top/verify,phishing,upi_fraud,Razorpay,Fake Razorpay merchant verification
+http://cashfree-payment-settle.xyz/collect,phishing,upi_fraud,Cashfree,Fake Cashfree payment settlement
+http://vedantu-scholarship.top/apply,phishing,educational,Vedantu,Fake Vedantu scholarship offer
+http://byjus-free-course.xyz/enroll,phishing,educational,BYJU'S,Fake BYJU'S free course enrollment
+http://unacademy-plus-free.club/access,phishing,educational,Unacademy,Fake Unacademy Plus free access

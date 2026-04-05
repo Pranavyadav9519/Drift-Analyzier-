@@ -1,0 +1,23 @@
+{
+  "id": "variant_002",
+  "type": "variant",
+  "base_campaign": "Microsoft account phishing",
+  "subject": "Microsoft Account: Unusual Sign-in Activity",
+  "sender_display": "Microsoft Account Team <security@microsoft-account-alert.top>",
+  "sender_email": "security@microsoft-account-alert.top",
+  "body_text": "We noticed unusual activity on your Microsoft account. Verify your identity at: http://microsoft-account-alert.top/verify\n\nIf you don't verify within 72 hours, your account will be suspended.",
+  "phishing_url": "http://microsoft-account-alert.top/verify",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.top)",
+    "Microsoft brand impersonation",
+    "verify keyword",
+    "account suspension threat",
+    "domain not microsoft.com"
+  ],
+  "india_specific": false,
+  "target": "Microsoft",
+  "notes": "Microsoft login phishing — very common variant with account suspension threat"
+}

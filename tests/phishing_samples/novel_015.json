@@ -1,0 +1,16 @@
+{
+  "id": "novel_015",
+  "type": "novel",
+  "category": "ecommerce",
+  "subject": "Meesho Seller Account Suspended — Verify to Restore",
+  "sender_display": "Meesho Seller Support <support@meesho-seller-login.xyz>",
+  "sender_email": "support@meesho-seller-login.xyz",
+  "body_text": "Dear Meesho Seller,\n\nYour seller account has been suspended due to policy violation. Verify at: http://meesho-seller-login.xyz/account\n\nProvide Aadhaar, bank account number, and GST to restore.",
+  "phishing_url": "http://meesho-seller-login.xyz/account",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.xyz)", "Meesho impersonation", "Aadhaar + bank + GST harvesting"],
+  "india_specific": true,
+  "target": "Meesho"
+}

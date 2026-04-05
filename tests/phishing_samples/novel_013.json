@@ -1,0 +1,16 @@
+{
+  "id": "novel_013",
+  "type": "novel",
+  "category": "govt_impersonation",
+  "subject": "SSC CGL 2024 Admit Card — Download Now",
+  "sender_display": "SSC India <admitcard@ssc-result-2024.xyz>",
+  "sender_email": "admitcard@ssc-result-2024.xyz",
+  "body_text": "Dear Candidate,\n\nYour SSC CGL 2024 admit card is ready. Download at: http://ssc-result-2024.xyz/check\n\nNote: Pay ₹199 for admit card access (refundable after exam).",
+  "phishing_url": "http://ssc-result-2024.xyz/check",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.xyz)", "SSC impersonation", "advance fee for admit card"],
+  "india_specific": true,
+  "target": "SSC India"
+}

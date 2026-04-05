@@ -1,0 +1,16 @@
+{
+  "id": "novel_008",
+  "type": "novel",
+  "category": "upi_fraud",
+  "subject": "Google Pay: You Won ₹10,000 — Claim Your Reward!",
+  "sender_display": "Google Pay India <reward@gpay-reward-points.top>",
+  "sender_email": "reward@gpay-reward-points.top",
+  "body_text": "Congratulations!\n\nYou've been selected to receive a ₹10,000 Google Pay reward. Claim at: http://gpay-reward-points.top/redeem\n\nEnter your UPI ID and PIN to receive payment instantly.",
+  "phishing_url": "http://gpay-reward-points.top/redeem",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.top)", "fake UPI reward", "UPI PIN harvesting"],
+  "india_specific": true,
+  "target": "Google Pay"
+}

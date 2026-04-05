@@ -1,0 +1,16 @@
+{
+  "id": "novel_012",
+  "type": "novel",
+  "category": "educational",
+  "subject": "NEET 2024 Results — Download Your Scorecard",
+  "sender_display": "NTA NEET <results@neet-result-nta.xyz>",
+  "sender_email": "results@neet-result-nta.xyz",
+  "body_text": "Dear NEET Candidate,\n\nYour NEET 2024 result is available. Download scorecard at: http://neet-result-nta.xyz/score\n\nRequires: Application number, DOB, Aadhaar number.",
+  "phishing_url": "http://neet-result-nta.xyz/score",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.xyz)", "NTA impersonation", "Aadhaar harvesting from students"],
+  "india_specific": true,
+  "target": "NTA/NEET"
+}

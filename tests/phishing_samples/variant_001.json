@@ -1,0 +1,23 @@
+{
+  "id": "variant_001",
+  "type": "variant",
+  "base_campaign": "PayPal phishing (classic)",
+  "subject": "Your PayPal Account Has Been Limited",
+  "sender_display": "PayPal Service <service@paypal-secure-login.xyz>",
+  "sender_email": "service@paypal-secure-login.xyz",
+  "body_text": "Dear PayPal User,\n\nYour PayPal account has been limited. Restore access at: http://paypal-secure-login.xyz/account/verify?token=abc123\n\nYou must verify within 24 hours or your account will be closed.",
+  "phishing_url": "http://paypal-secure-login.xyz/account/verify?token=abc123",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.xyz)",
+    "PayPal phishing keyword",
+    "account limitation threat",
+    "verify keyword in URL",
+    "token parameter (harvesting)"
+  ],
+  "india_specific": false,
+  "target": "PayPal",
+  "notes": "Classic PayPal account limitation phishing — widely known variant"
+}

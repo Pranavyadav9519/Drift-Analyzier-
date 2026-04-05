@@ -1,0 +1,16 @@
+{
+  "id": "novel_010",
+  "type": "novel",
+  "category": "ecommerce",
+  "subject": "You Are a Lucky Winner — Flipkart Big Billion Days Prize!",
+  "sender_display": "Flipkart Offers <winner@flipkart-offer-winner.xyz>",
+  "sender_email": "winner@flipkart-offer-winner.xyz",
+  "body_text": "Dear Customer,\n\nYou have won an iPhone 15 in Flipkart Big Billion Days lottery! Claim at: http://flipkart-offer-winner.xyz/claim\n\nPay ₹99 delivery charges to receive your prize.",
+  "phishing_url": "http://flipkart-offer-winner.xyz/claim",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.xyz)", "Flipkart impersonation", "advance fee fraud", "lottery scam"],
+  "india_specific": true,
+  "target": "Flipkart"
+}

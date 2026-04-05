@@ -1,0 +1,16 @@
+{
+  "id": "novel_014",
+  "type": "novel",
+  "category": "upi_fraud",
+  "subject": "BHIM UPI: Collect ₹2,000 Government Subsidy",
+  "sender_display": "BHIM UPI India <subsidy@bhim-upi-reward.club>",
+  "sender_email": "subsidy@bhim-upi-reward.club",
+  "body_text": "Dear UPI User,\n\nThe Government of India has allocated a ₹2,000 subsidy to your BHIM UPI account. Collect at: http://bhim-upi-reward.club/claim\n\nEnter UPI ID, PIN, and Aadhaar to verify.",
+  "phishing_url": "http://bhim-upi-reward.club/claim",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.club)", "BHIM/government impersonation", "UPI PIN + Aadhaar harvesting"],
+  "india_specific": true,
+  "target": "BHIM UPI"
+}

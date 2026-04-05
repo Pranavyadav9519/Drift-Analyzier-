@@ -1,0 +1,16 @@
+{
+  "id": "novel_007",
+  "type": "novel",
+  "category": "banking",
+  "subject": "HDFC Bank: Your Account Has Been Flagged — Verify Now",
+  "sender_display": "HDFC Bank Security <alert@hdfc-account-verify.xyz>",
+  "sender_email": "alert@hdfc-account-verify.xyz",
+  "body_text": "Dear HDFC Customer,\n\nYour account has been flagged for suspicious activity. Verify at: http://hdfc-account-verify.xyz/secure\n\nProvide Customer ID, MPIN, and OTP to restore access.",
+  "phishing_url": "http://hdfc-account-verify.xyz/secure",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.xyz)", "HDFC Bank impersonation", "MPIN harvesting"],
+  "india_specific": true,
+  "target": "HDFC Bank"
+}

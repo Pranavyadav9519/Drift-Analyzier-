@@ -1,0 +1,22 @@
+{
+  "id": "novel_003",
+  "type": "novel",
+  "category": "govt_impersonation",
+  "subject": "URGENT: Update Your Aadhaar Mobile Number — UIDAI Notice",
+  "sender_display": "UIDAI Government of India <update@uidai-aadhaar-update.xyz>",
+  "sender_email": "update@uidai-aadhaar-update.xyz",
+  "body_text": "Dear Aadhaar Holder,\n\nAs per UIDAI directive, you must update your registered mobile number by December 31, 2024, or your Aadhaar will be deactivated.\n\nClick here to update: http://uidai-aadhaar-update.xyz/verify\n\nYou will need your 12-digit Aadhaar number and OTP.\n\nUIDAI Helpdesk",
+  "phishing_url": "http://uidai-aadhaar-update.xyz/verify",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.xyz)",
+    "government impersonation (UIDAI)",
+    "Aadhaar + OTP harvesting",
+    "deactivation threat",
+    "domain not uidai.gov.in"
+  ],
+  "india_specific": true,
+  "target": "UIDAI"
+}

@@ -1,0 +1,22 @@
+{
+  "id": "novel_001",
+  "type": "novel",
+  "category": "job_scam",
+  "subject": "Congratulations! Amazon India Internship — Action Required",
+  "sender_display": "Amazon Recruitment <hr@amazon-internship-2024.xyz>",
+  "sender_email": "hr@amazon-internship-2024.xyz",
+  "body_text": "Dear Student,\n\nCongratulations! You have been shortlisted for the Amazon India Summer Internship 2024 based on your academic profile.\n\nPlease verify your Aadhaar number and upload your documents at: http://amazon-internship-2024.xyz/apply\n\nDeadline: 48 hours\n\nBest regards,\nAmazon India HR Team",
+  "phishing_url": "http://amazon-internship-2024.xyz/apply",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.xyz)",
+    "job_scam keyword (internship)",
+    "urgency tactic (48 hours)",
+    "Aadhaar data harvesting",
+    "domain not amazon.in or amazon.com"
+  ],
+  "india_specific": true,
+  "target": "Amazon India"
+}

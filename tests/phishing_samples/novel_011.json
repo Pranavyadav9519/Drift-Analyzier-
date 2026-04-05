@@ -1,0 +1,16 @@
+{
+  "id": "novel_011",
+  "type": "novel",
+  "category": "telecom",
+  "subject": "Jio: Your SIM Will Be Deactivated — Complete KYC Now",
+  "sender_display": "Reliance Jio <kyc@jio-fiber-upgrade.xyz>",
+  "sender_email": "kyc@jio-fiber-upgrade.xyz",
+  "body_text": "Dear Jio Customer,\n\nYour Jio SIM will be deactivated within 24 hours. Complete KYC verification at: http://jio-fiber-upgrade.xyz/activate\n\nProvide Aadhaar number and selfie.",
+  "phishing_url": "http://jio-fiber-upgrade.xyz/activate",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.xyz)", "Jio impersonation", "Aadhaar + selfie harvesting", "SIM deactivation threat"],
+  "india_specific": true,
+  "target": "Jio"
+}

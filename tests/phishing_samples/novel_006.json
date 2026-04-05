@@ -1,0 +1,16 @@
+{
+  "id": "novel_006",
+  "type": "novel",
+  "category": "govt_impersonation",
+  "subject": "Income Tax Refund of ₹8,500 — Claim Before March 31",
+  "sender_display": "Income Tax India <refund@incometax-refund-2024.top>",
+  "sender_email": "refund@incometax-refund-2024.top",
+  "body_text": "Dear Taxpayer,\n\nYour Income Tax Refund of ₹8,500 for AY 2023-24 is ready. Click to claim: http://incometax-refund-2024.top/claim\n\nRequires PAN number and bank account details.",
+  "phishing_url": "http://incometax-refund-2024.top/claim",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": ["suspicious_tld (.top)", "income tax impersonation", "PAN + bank harvesting"],
+  "india_specific": true,
+  "target": "Income Tax India"
+}

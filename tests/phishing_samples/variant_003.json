@@ -1,0 +1,23 @@
+{
+  "id": "variant_003",
+  "type": "variant",
+  "base_campaign": "Amazon order phishing",
+  "subject": "Your Amazon Order Has Been Placed — Verify Payment",
+  "sender_display": "Amazon.in <orders@amaz0n-india.xyz>",
+  "sender_email": "orders@amaz0n-india.xyz",
+  "body_text": "Dear Customer,\n\nAn order of ₹12,499 has been placed from your Amazon account. If this wasn't you, cancel and verify your account at: http://amaz0n-india.xyz/account/cancel-verify?order=9283764\n\nAct within 2 hours to get a full refund.",
+  "phishing_url": "http://amaz0n-india.xyz/account/cancel-verify?order=9283764",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.xyz)",
+    "typosquatting (amaz0n vs amazon)",
+    "urgency tactic (2 hours)",
+    "fake order cancellation",
+    "account + cancel + verify keywords"
+  ],
+  "india_specific": true,
+  "target": "Amazon India",
+  "notes": "Amazon typosquatting variant — amaz0n (zero) instead of amazon"
+}

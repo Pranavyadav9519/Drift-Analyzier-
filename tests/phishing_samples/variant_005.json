@@ -1,0 +1,23 @@
+{
+  "id": "variant_005",
+  "type": "variant",
+  "base_campaign": "Bank OTP phishing",
+  "subject": "Important: Complete Your KYC to Avoid Account Suspension",
+  "sender_display": "Your Bank <kyc@secure-banking-update.club>",
+  "sender_email": "kyc@secure-banking-update.club",
+  "body_text": "Dear Customer,\n\nYour KYC is incomplete. Your account will be suspended by December 31. Update at: http://secure-banking-update.club/kyc\n\nRequires: Account number, IFSC, and OTP.",
+  "phishing_url": "http://secure-banking-update.club/kyc",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.club)",
+    "generic bank impersonation",
+    "KYC + OTP harvesting",
+    "account suspension threat",
+    "secure keyword in domain (false trust)"
+  ],
+  "india_specific": true,
+  "target": "Generic Indian bank",
+  "notes": "Generic bank KYC phishing — targets multiple Indian banks with one template"
+}

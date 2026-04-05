@@ -1,0 +1,23 @@
+{
+  "id": "variant_004",
+  "type": "variant",
+  "base_campaign": "Apple ID phishing",
+  "subject": "Apple ID: Your Account Is Locked",
+  "sender_display": "Apple Support <noreply@apple-id-support.top>",
+  "sender_email": "noreply@apple-id-support.top",
+  "body_text": "Your Apple ID has been locked. Unlock at: http://apple-id-support.top/unlock\n\nFailure to verify within 24 hours will result in permanent account deletion.",
+  "phishing_url": "http://apple-id-support.top/unlock",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.top)",
+    "Apple brand impersonation",
+    "account locked threat",
+    "deletion scare tactic",
+    "domain not apple.com"
+  ],
+  "india_specific": false,
+  "target": "Apple",
+  "notes": "Apple ID account locked variant — common phishing pattern targeting iOS users"
+}

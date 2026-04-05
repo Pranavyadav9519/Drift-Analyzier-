@@ -15,9 +15,25 @@ SUSPICIOUS_TLDS = {
 }
 
 PHISHING_KEYWORDS = [
+    # Generic phishing signals
     'login', 'signin', 'account', 'verify', 'update', 'secure', 'banking',
-    'password', 'confirm', 'paypal', 'ebay', 'amazon', 'apple', 'microsoft',
-    'support', 'service', 'alert', 'suspended', 'unusual', 'activity',
+    'password', 'confirm', 'support', 'service', 'alert', 'suspended',
+    'unusual', 'activity', 'token', 'reset', 'validate', 'credential',
+    # Global brands commonly impersonated
+    'paypal', 'ebay', 'amazon', 'apple', 'microsoft', 'google',
+    # Indian financial brands (commonly impersonated in India-specific phishing)
+    'sbi', 'hdfc', 'icici', 'axis', 'kotak', 'paytm', 'phonepe',
+    'gpay', 'bhim', 'upi', 'razorpay', 'cashfree',
+    # Indian government/telecom brands
+    'aadhaar', 'uidai', 'epfo', 'irctc', 'nsdl', 'digilocker',
+    'incometax', 'pmkisan', 'jio', 'airtel',
+    # India-specific phishing lures
+    'kyc', 'refund', 'cashback', 'reward', 'claim', 'prize',
+    'winner', 'internship', 'scholarship', 'recruitment', 'hiring',
+    # Indian exam/result phishing (NEET, SSC, UPSC, etc.)
+    'result', 'admit', 'score', 'neet', 'ssc', 'upsc',
+    # Common phishing action words
+    'cancel', 'recharge', 'withdraw', 'upgrade', 'activate',
 ]
 
 

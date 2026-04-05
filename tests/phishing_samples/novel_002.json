@@ -1,0 +1,22 @@
+{
+  "id": "novel_002",
+  "type": "novel",
+  "category": "upi_fraud",
+  "subject": "Your PhonePe Cashback of ₹5,000 is Waiting!",
+  "sender_display": "PhonePe Rewards <noreply@phonepe-cashback-2024.xyz>",
+  "sender_email": "noreply@phonepe-cashback-2024.xyz",
+  "body_text": "Dear Customer,\n\nYou have earned a cashback of ₹5,000 on your recent PhonePe transactions.\n\nClaim your cashback now: http://phonepe-cashback-2024.xyz/claim\n\nOffer expires in 24 hours. Enter your UPI PIN to complete verification.\n\nPhonePe Customer Care",
+  "phishing_url": "http://phonepe-cashback-2024.xyz/claim",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.xyz)",
+    "UPI PIN harvesting",
+    "fake cashback lure",
+    "urgency tactic (24 hours)",
+    "domain not phonepe.com"
+  ],
+  "india_specific": true,
+  "target": "PhonePe"
+}

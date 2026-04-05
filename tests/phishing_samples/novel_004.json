@@ -1,0 +1,22 @@
+{
+  "id": "novel_004",
+  "type": "novel",
+  "category": "banking",
+  "subject": "SBI Net Banking — Security Alert: Verify Your Account",
+  "sender_display": "State Bank of India <security@sbi-netbanking-secure.top>",
+  "sender_email": "security@sbi-netbanking-secure.top",
+  "body_text": "Dear SBI Customer,\n\nWe detected unusual activity on your SBI account. Your internet banking has been temporarily suspended.\n\nTo restore access, verify your details at: http://sbi-netbanking-secure.top/signin\n\nRequires: Customer ID, Password, OTP\n\nSBI Customer Support",
+  "phishing_url": "http://sbi-netbanking-secure.top/signin",
+  "expected_verdict": "PHISHING",
+  "expected_risk_level": "high",
+  "expected_min_score": 70,
+  "signals": [
+    "suspicious_tld (.top)",
+    "banking phishing (SBI)",
+    "account suspension threat",
+    "credential harvesting",
+    "domain not onlinesbi.sbi"
+  ],
+  "india_specific": true,
+  "target": "SBI"
+}
