@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # MongoDB
+  mongo:
+    image: mongo:7
+    container_name: sentinel_mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  # Python ML Service
+  ml-service:
+    build: ./ml-service
+    container_name: sentinel_ml
+    ports:
+      - '5001:5001'
+    environment:
+      - PORT=5001
+    restart: unless-stopped
+
+  # Node.js Backend
+  backend:
+    build: ./backend
+    container_name: sentinel_backend
+    ports:
+      - '5000:5000'
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/sentinel_zero
+      - JWT_SECRET=${JWT_SECRET:-change_this_secret_in_production}
+      - ML_SERVICE_URL=http://ml-service:5001
+      - NODE_ENV=production
+    depends_on:
+      - mongo
+      - ml-service
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build: ./frontend
+    container_name: sentinel_frontend
+    ports:
+      - '3000:80'
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
