@@ -119,7 +119,13 @@ router.post('/login', authLimiter, async (req, res) => {
     // Add device to known devices list if not high risk
     if (riskLevel !== 'high' && isNewDevice) {
       user.knownDevices.push(userAgent);
-      await user.save();
+      try {
+        await user.save();
+      } catch (saveErr) {
+        // Non-fatal: log and continue — the login succeeds, but the device
+        // won't be persisted and will be treated as new on the next login.
+        console.error('⚠️  Failed to persist known device:', saveErr.message);
+      }
     }
 
     // Trigger auto-healing
