@@ -3,7 +3,7 @@
   "model_type": "IsolationForest",
   "algorithm": "Isolation Forest (unsupervised anomaly detection)",
   "framework": "scikit-learn \u2192 ONNX",
-  "exported_at": "2026-04-05T19:00:41.075559+00:00",
+  "exported_at": "2026-04-05T19:03:28.704259+00:00",
   "features": [
     {
       "index": 0,
