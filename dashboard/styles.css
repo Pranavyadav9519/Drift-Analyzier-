@@ -1,0 +1,269 @@
+/* Sentinel Zero — Dashboard Styles */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+
+header {
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  padding: 16px 32px;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo {
+  font-size: 2rem;
+}
+
+h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.local-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #0284c7;
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 20px;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+}
+
+.subtitle {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.status-dot.online {
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade80;
+}
+
+.status-dot.offline {
+  background: #f87171;
+}
+
+/* ── Main ───────────────────────────────────────────────── */
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── Stat cards ─────────────────────────────────────────── */
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 20px 16px;
+  text-align: center;
+  border: 1px solid #334155;
+}
+
+.card.warn {
+  border-color: #d97706;
+}
+
+.card.danger {
+  border-color: #dc2626;
+}
+
+.card-value {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.card.warn .card-value {
+  color: #fbbf24;
+}
+
+.card.danger .card-value {
+  color: #f87171;
+}
+
+.card-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 6px;
+}
+
+/* ── Charts ─────────────────────────────────────────────── */
+
+.charts-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 700px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-box {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #334155;
+}
+
+.chart-box h2 {
+  font-size: 0.88rem;
+  color: #94a3b8;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── URL check panel ────────────────────────────────────── */
+
+.check-panel,
+.privacy-panel {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #334155;
+}
+
+.check-panel h2,
+.privacy-panel h2 {
+  font-size: 0.88rem;
+  color: #94a3b8;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.check-row {
+  display: flex;
+  gap: 10px;
+}
+
+#url-input {
+  flex: 1;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 0.88rem;
+  padding: 10px 12px;
+  outline: none;
+}
+
+#url-input:focus {
+  border-color: #38bdf8;
+}
+
+#check-btn {
+  background: #0284c7;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  transition: background 0.15s;
+}
+
+#check-btn:hover {
+  background: #0369a1;
+}
+
+.check-result {
+  margin-top: 14px;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.88rem;
+}
+
+.check-result.hidden {
+  display: none;
+}
+
+.check-result.safe {
+  background: #14532d;
+  border: 1px solid #16a34a;
+}
+
+.check-result.suspicious {
+  background: #451a03;
+  border: 1px solid #d97706;
+}
+
+.check-result.phishing {
+  background: #450a0a;
+  border: 1px solid #dc2626;
+}
+
+.check-result.loading {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+.check-result .verdict {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.check-result .meta {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+/* ── Privacy panel ───────────────────────────────────────── */
+
+.privacy-item {
+  font-size: 0.85rem;
+  padding: 4px 0;
+}
+
+.privacy-item.ok {
+  color: #86efac;
+}
+
+.privacy-item.warn {
+  color: #fbbf24;
+}

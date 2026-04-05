@@ -6,3 +6,4 @@ joblib
 tldextract
 validators
 python-dotenv
+pytest

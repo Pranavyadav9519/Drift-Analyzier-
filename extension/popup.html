@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentinel Zero</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="icon48.png" alt="Sentinel Zero" class="logo" />
+      <h1>Sentinel Zero</h1>
+      <p class="tagline">Phishing Detection · 100% Local</p>
+    </header>
+
+    <section class="check-section">
+      <input
+        id="url-input"
+        type="url"
+        placeholder="Paste a URL to check…"
+        autocomplete="off"
+      />
+      <button id="check-btn">Check URL</button>
+    </section>
+
+    <div id="result-box" class="result-box hidden"></div>
+
+    <section class="stats-section">
+      <h2>Session Stats</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span id="stat-checks" class="stat-value">—</span>
+          <span class="stat-label">Checks</span>
+        </div>
+        <div class="stat-card">
+          <span id="stat-phishing" class="stat-value danger">—</span>
+          <span class="stat-label">Phishing</span>
+        </div>
+        <div class="stat-card">
+          <span id="stat-suspicious" class="stat-value warn">—</span>
+          <span class="stat-label">Suspicious</span>
+        </div>
+        <div class="stat-card">
+          <span id="stat-latency" class="stat-value">—</span>
+          <span class="stat-label">Avg Latency</span>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <a href="http://localhost:5050/dashboard" target="_blank">Open Dashboard ↗</a>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

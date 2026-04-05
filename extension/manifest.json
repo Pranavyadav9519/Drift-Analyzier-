@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Sentinel Zero — Phishing Detector",
+  "version": "1.0.0",
+  "description": "Real-time phishing URL detection powered by Sentinel Zero Local. 100% local processing.",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:5050/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Sentinel Zero",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
