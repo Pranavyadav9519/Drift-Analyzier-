@@ -7,8 +7,7 @@ const LoginEvent = require('../models/LoginEvent');
 const auth = require('../middleware/auth');
 const axios = require('axios');
 const { computeRiskScore, getRiskLevel, getAction, applyAutoHealing } = require('../utils/riskEngine');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'sentinel_secret';
+const { JWT_SECRET } = require('../config');
 const ML_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
 
 // Rate limiter: max 10 auth attempts per 15 minutes per IP
@@ -119,10 +118,18 @@ router.post('/login', authLimiter, async (req, res) => {
     // Add device to known devices list if not high risk
     if (riskLevel !== 'high' && isNewDevice) {
       user.knownDevices.push(userAgent);
+      await user.save();
     }
 
     // Trigger auto-healing
     await applyAutoHealing(user, event, riskLevel);
+
+    if (riskLevel === 'high') {
+      return res.status(403).json({
+        message: 'Session terminated due to high-risk login',
+        security: { riskScore, riskLevel, action, isAnomaly },
+      });
+    }
 
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
 

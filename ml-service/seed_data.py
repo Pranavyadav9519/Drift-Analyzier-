@@ -7,6 +7,7 @@ Requires: pymongo (pip install pymongo)
 
 import random
 from datetime import datetime, timedelta
+from bson import ObjectId
 from pymongo import MongoClient
 
 MONGO_URI = 'mongodb://localhost:27017/sentinel_zero'
@@ -19,8 +20,8 @@ print('✅ Cleared existing login events')
 
 # Sample user IDs (replace with real ones after signing up)
 USERS = [
-    {'id': '000000000000000000000001', 'username': 'alice'},
-    {'id': '000000000000000000000002', 'username': 'bob'},
+    {'id': ObjectId('000000000000000000000001'), 'username': 'alice'},
+    {'id': ObjectId('000000000000000000000002'), 'username': 'bob'},
 ]
 
 AGENTS = [
@@ -43,8 +44,8 @@ for user in USERS:
             'ipAddress': f'192.168.1.{random.randint(1, 10)}',
             'userAgent': AGENTS[0],  # always same device
             'loginHour': hour,
-            'loginDayOfWeek': dt.weekday() + 1,
-            'isNewDevice': False,
+            # (weekday()+1)%7 maps Mon=1..Sat=6, Sun=0 — matches JS getDay()
+            'loginDayOfWeek': (dt.weekday() + 1) % 7,
             'anomalyScore': random.uniform(-0.1, 0.1),
             'riskScore': random.randint(0, 20),
             'riskLevel': 'low',
@@ -67,7 +68,8 @@ for user in USERS:
             'ipAddress': f'10.20.30.{random.randint(1, 255)}',
             'userAgent': AGENTS[2],  # mobile — new device
             'loginHour': hour,
-            'loginDayOfWeek': dt.weekday() + 1,
+            # (weekday()+1)%7 maps Mon=1..Sat=6, Sun=0 — matches JS getDay()
+            'loginDayOfWeek': (dt.weekday() + 1) % 7,
             'isNewDevice': True,
             'anomalyScore': random.uniform(-0.5, -0.2),
             'riskScore': risk,

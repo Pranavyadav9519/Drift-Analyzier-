@@ -5,6 +5,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+const { JWT_SECRET, FRONTEND_ORIGIN } = require('./config');
 const authRoutes = require('./routes/auth');
 const behaviorRoutes = require('./routes/behavior');
 const riskRoutes = require('./routes/risk');
@@ -13,7 +14,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: FRONTEND_ORIGIN }));
 app.use(express.json());
 
 // Global rate limiter — 200 requests per 15 minutes per IP across all API routes
@@ -43,6 +44,9 @@ mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB');
+    if (JWT_SECRET === 'sentinel_secret') {
+      console.warn('⚠️  WARNING: Using default JWT secret. Set JWT_SECRET environment variable for secure deployment.');
+    }
     app.listen(PORT, () => console.log(`🚀 Backend running on http://localhost:${PORT}`));
   })
   .catch((err) => {

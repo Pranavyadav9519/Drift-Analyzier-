@@ -90,17 +90,29 @@ document.addEventListener(
     const href = anchor.href;
     if (!href) return;
     // Only analyse http/https URLs; skip javascript:, data:, vbscript:, #, etc.
+    let parsed;
     try {
-      const parsed = new URL(href);
+      parsed = new URL(href);
       if (!SAFE_TO_ANALYSE_SCHEMES.has(parsed.protocol)) return;
     } catch {
-      return; // malformed URL
+      return; // malformed URL — allow navigation
     }
 
+    // Prevent navigation immediately so we can check the URL first
+    event.preventDefault();
+
     const result = await checkUrl(href);
-    if (!result) return;
+    if (!result) {
+      // API unreachable — navigate as normal
+      window.location.href = href;
+      return;
+    }
     if (HIGH_RISK_VERDICTS.has(result.verdict)) {
       showBanner(result.verdict, href, result.risk_score);
+      // Do NOT navigate — banner is shown instead
+    } else {
+      // SAFE verdict — navigate programmatically
+      window.location.href = href;
     }
   },
   true // capture phase so we intercept before navigation
