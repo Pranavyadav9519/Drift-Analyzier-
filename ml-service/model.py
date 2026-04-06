@@ -4,28 +4,14 @@
 # Anomalies are isolated more quickly, resulting in shorter path lengths.
 # score_samples() returns negative values; more negative = more anomalous.
 
-import hashlib
-import os
+import threading
 import numpy as np
-import joblib
 from sklearn.ensemble import IsolationForest
 
-# Store per-user models in a local "models/" directory
-MODELS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), 'models'))
-os.makedirs(MODELS_DIR, exist_ok=True)
-
-
-def _model_path(user_id: str) -> str:
-    """Return a safe, fixed-length file path for a user's saved model.
-
-    The file name is a SHA-256 digest of the user_id so that the path is
-    completely independent of the raw user-supplied string, preventing both
-    path-traversal and unsafe-deserialization via crafted filenames.
-    """
-    # sha256 produces a hex string of exactly 64 safe characters
-    safe_name = hashlib.sha256(user_id.encode('utf-8')).hexdigest()
-    path = os.path.join(MODELS_DIR, f'{safe_name}.pkl')
-    return path
+# In-memory model store: maps user_id -> trained IsolationForest instance.
+# No data is written to disk — models live only for the lifetime of the process.
+_model_cache: dict[str, IsolationForest] = {}
+_cache_lock = threading.Lock()
 
 
 def _features_from_dict(d: dict) -> list:
@@ -50,7 +36,8 @@ def train_model(user_id: str, data: list) -> dict:
     model = IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
     model.fit(X)
 
-    joblib.dump(model, _model_path(user_id))
+    with _cache_lock:
+        _model_cache[user_id] = model
     return {'status': 'trained', 'samples': len(data), 'userId': user_id}
 
 
@@ -60,11 +47,10 @@ def predict(user_id: str, login_hour: int, login_day: int, is_new_device: int) -
     If no model exists for the user, use a generic baseline model.
     :returns: dict with 'score' (float) and 'isAnomaly' (bool)
     """
-    path = _model_path(user_id)
+    with _cache_lock:
+        model = _model_cache.get(user_id)
 
-    if os.path.exists(path):
-        model = joblib.load(path)
-    else:
+    if model is None:
         # No user-specific model — use a generic fallback trained on typical patterns
         model = _build_fallback_model()
 

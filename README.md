@@ -221,6 +221,24 @@ Raw anomaly score without remedy steps.
 
 ---
 
+## Running the System Monitor
+
+The system monitor watches host-level processes and network connections — it intentionally runs **directly on the host**, not inside Docker, because container isolation would prevent it from seeing real OS activity.
+
+```bash
+# Install the single optional dependency
+pip install psutil>=5.9.0
+
+# Run the monitor from the repo root
+python -m monitor.system_monitor
+```
+
+It spawns three background threads (process watcher, privilege-escalation watcher, network watcher) and blocks until `Ctrl+C`. All events live in RAM; nothing is written to disk.
+
+> **Note:** On Linux you may need `sudo` for full process visibility. On macOS, grant Terminal/Python the *Full Disk Access* and *Accessibility* permissions in System Preferences → Privacy & Security if privilege-escalation events are not detected.
+
+---
+
 ## Running Tests
 
 ```bash

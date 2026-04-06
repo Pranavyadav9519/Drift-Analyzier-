@@ -1,9 +1,7 @@
-"""
-monitor/requirements.txt — Monitor service dependencies
-
-Only one optional dependency (psutil) to keep the monitor lightweight.
-Everything else uses the Python standard library.
-"""
+# monitor/requirements.txt — Monitor service dependencies
+#
+# Only one optional dependency (psutil) to keep the monitor lightweight.
+# Everything else uses the Python standard library.
 
 # Optional but strongly recommended — provides richer process and network info
 psutil>=5.9.0
