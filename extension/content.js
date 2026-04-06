@@ -94,9 +94,6 @@ function showWarningBanner(threatData) {
 
   // Build top 2 remedy steps for the inline banner (full list is in the popup)
   const topRemedies = (threatData.remedy_steps || []).slice(0, 2);
-  const remedyHTML = topRemedies
-    .map(function(step) { return "<li>" + escapeHtml(step) + "</li>"; })
-    .join("");
 
   const banner = document.createElement("div");
   banner.id = BANNER_ELEMENT_ID;
@@ -115,34 +112,59 @@ function showWarningBanner(threatData) {
     "line-height: 1.5",
   ].join("; ");
 
-  banner.innerHTML = [
-    "<div style='display:flex;align-items:flex-start;gap:10px'>",
-    "  <span style='font-size:1.4em'>" + icon + "</span>",
-    "  <div style='flex:1'>",
-    "    <strong>Drift Analyzer — " + threatLabel + " DETECTED</strong>",
-    "    <span style='opacity:.8;margin-left:8px'>Risk: " + scorePercent + "%</span>",
-    "    <p style='margin:4px 0 0;opacity:.9'>" + escapeHtml(threatData.description || "") + "</p>",
-    topRemedies.length > 0
-      ? "<ol style='margin:6px 0 0;padding-left:18px;opacity:.9'>" + remedyHTML + "</ol>"
-      : "",
-    "  </div>",
-    "  <button id='drift-dismiss-btn' style='",
-    "    background:rgba(255,255,255,.25);border:none;color:#fff;",
-    "    padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;",
-    "  '>Dismiss</button>",
-    "</div>",
-  ].join("");
+  // Build banner using DOM APIs so user-controlled text is never interpreted as HTML
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;align-items:flex-start;gap:10px";
+
+  const iconSpan = document.createElement("span");
+  iconSpan.style.fontSize = "1.4em";
+  iconSpan.textContent = icon;
+
+  const bodyDiv = document.createElement("div");
+  bodyDiv.style.flex = "1";
+
+  const heading = document.createElement("strong");
+  heading.textContent = "Drift Analyzer \u2014 " + threatLabel + " DETECTED";
+
+  const riskSpan = document.createElement("span");
+  riskSpan.style.cssText = "opacity:.8;margin-left:8px";
+  riskSpan.textContent = "Risk: " + scorePercent + "%";
+
+  const descPara = document.createElement("p");
+  descPara.style.cssText = "margin:4px 0 0;opacity:.9";
+  descPara.textContent = threatData.description || "";
+
+  bodyDiv.appendChild(heading);
+  bodyDiv.appendChild(riskSpan);
+  bodyDiv.appendChild(descPara);
+
+  if (topRemedies.length > 0) {
+    const ol = document.createElement("ol");
+    ol.style.cssText = "margin:6px 0 0;padding-left:18px;opacity:.9";
+    topRemedies.forEach(function(step) {
+      const li = document.createElement("li");
+      li.textContent = step;  // textContent prevents XSS — never use innerHTML here
+      ol.appendChild(li);
+    });
+    bodyDiv.appendChild(ol);
+  }
+
+  const dismissBtn = document.createElement("button");
+  dismissBtn.id = "drift-dismiss-btn";
+  dismissBtn.style.cssText = (
+    "background:rgba(255,255,255,.25);border:none;color:#fff;" +
+    "padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;"
+  );
+  dismissBtn.textContent = "Dismiss";
+  dismissBtn.addEventListener("click", removeBanner);
+
+  row.appendChild(iconSpan);
+  row.appendChild(bodyDiv);
+  row.appendChild(dismissBtn);
+  banner.appendChild(row);
 
   document.body.prepend(banner);
-
-  document.getElementById("drift-dismiss-btn").addEventListener("click", removeBanner);
   setTimeout(removeBanner, BANNER_DISMISS_DELAY_MS);
-}
-
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.appendChild(document.createTextNode(text));
-  return div.innerHTML;
 }
 
 // ── Click interceptor ─────────────────────────────────────────────────────────

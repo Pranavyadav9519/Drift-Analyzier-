@@ -129,10 +129,19 @@ function clearBadge(tabId) {
 function showNativeNotification(threatData) {
   const threatLabel = (threatData.threat_type || "threat").replace(/_/g, " ");
   const scorePercent = Math.round((threatData.risk_score || 0) * 100);
-  const topRemedies = (threatData.remedy_steps || []).slice(0, 3);
 
-  const title = "Drift Analyzer — " + threatLabel.toUpperCase() + " Detected (" + scorePercent + "% risk)";
-  const message = threatData.description || "A threat was detected on the current page.";
+  // Sanitize remedy steps: keep only plain strings, strip to 150 chars each to prevent
+  // overly long notification bodies if the API response is unexpectedly large.
+  const rawSteps = Array.isArray(threatData.remedy_steps) ? threatData.remedy_steps : [];
+  const topRemedies = rawSteps
+    .filter(function(step) { return typeof step === "string" && step.length > 0; })
+    .slice(0, 3)
+    .map(function(step) { return step.substring(0, 150); });
+
+  const title = "Drift Analyzer \u2014 " + threatLabel.toUpperCase() + " Detected (" + scorePercent + "% risk)";
+  const message = (typeof threatData.description === "string" && threatData.description)
+    ? threatData.description.substring(0, 200)
+    : "A threat was detected on the current page.";
 
   const notificationOptions = {
     type: "basic",
