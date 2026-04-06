@@ -1,81 +1,47 @@
+# docker-compose.yml — Drift Analyzer
+#
+# Only two core services run here:
+#   1. phishing-api  — Flask URL phishing detection (port 5050)
+#   2. ml-service    — Isolation Forest anomaly detection (port 5001)
+#
+# No MongoDB. No frontend. No backend middleware.
+# Zero data persistence — everything lives in-memory while services run.
+
 version: '3.8'
 
 services:
-  # MongoDB — shared data store for behavior anomaly service
-  mongo:
-    image: mongo:7
-    container_name: sentinel_mongo
-    ports:
-      - '27017:27017'
-    volumes:
-      - mongo_data:/data/db
-    restart: unless-stopped
-
-  # ── Layer 2: Phishing Detection API (Flask) ─────────────────────────────────
-  # Analyses URLs with rule-based heuristics + a trained RandomForest model.
-  # Browser extension sends POST /check-url → gets SAFE / SUSPICIOUS / PHISHING verdict.
+  # ── Phishing Detection API (Flask) ─────────────────────────────────────────
+  # Analyses URLs in real time using RandomForest + rule-based heuristics.
+  # The browser extension calls POST /threat to get verdicts + remedy steps.
   phishing-api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: sentinel_phishing
+    container_name: drift_phishing_api
     ports:
       - '5050:5050'
     environment:
       - PORT=5050
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5050/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
-  # ── Layer 3a: Behavior Anomaly ML Microservice (Python/Flask) ───────────────
-  # Trains an Isolation Forest per user and scores new login events.
+  # ── ML Anomaly Detection Service (Flask + Isolation Forest) ────────────────
+  # Detects unusual login/access patterns per user session.
+  # System monitor calls POST /threat/predict to score system events.
   ml-service:
     build: ./ml-service
-    container_name: sentinel_ml
+    container_name: drift_ml_service
     ports:
       - '5001:5001'
     environment:
       - PORT=5001
     restart: unless-stopped
-
-  # ── Layer 3b: Behavior Anomaly Backend (Node.js/Express) ───────────────────
-  # Handles auth, captures login events, calls ml-service, applies auto-healing.
-  backend:
-    build: ./backend
-    container_name: sentinel_backend
-    ports:
-      - '5000:5000'
-    environment:
-      - PORT=5000
-      - MONGO_URI=mongodb://mongo:27017/sentinel_zero
-      - JWT_SECRET=${JWT_SECRET:-change_this_secret_in_production}
-      - ML_SERVICE_URL=http://ml-service:5001
-      - NODE_ENV=production
-    depends_on:
-      - mongo
-      - ml-service
-    restart: unless-stopped
-
-  # ── Layer 4a: Behavior Dashboard (React) ───────────────────────────────────
-  # Real-time login-anomaly dashboard: risk gauge, alerts, login history.
-  frontend:
-    build: ./frontend
-    container_name: sentinel_frontend
-    ports:
-      - '3000:80'
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-  # ── Layer 4b: Phishing Dashboard (static HTML) ─────────────────────────────
-  # Lightweight dashboard served by nginx; polls /stats every 3 s.
-  dashboard:
-    image: nginx:alpine
-    container_name: sentinel_dashboard
-    ports:
-      - '8080:80'
-    volumes:
-      - ./dashboard:/usr/share/nginx/html:ro
-    restart: unless-stopped
-
-volumes:
-  mongo_data:
-
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

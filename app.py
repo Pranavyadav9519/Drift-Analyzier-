@@ -1,22 +1,26 @@
 """
-app.py — Sentinel Zero Local
-Standalone Flask API for real-time URL phishing detection.
+app.py — Drift Analyzer Phishing Detection API
+
+Lightweight Flask service that analyses URLs in real time using a trained
+RandomForest model (falls back to rule-based scoring if no model is present).
+
+Every endpoint returns actionable data — not just a verdict, but also
+specific remedy steps the user can take if a threat is detected.
 
 Endpoints:
-    POST /check-url       — Analyse a URL and return a phishing risk score
-    GET  /stats           — Aggregated metrics since server start
-    GET  /privacy-report  — Confirm zero external API calls
-    GET  /dashboard       — Live HTML monitoring dashboard
-
-Usage:
-    python app.py
+    POST /check-url              — Full URL analysis (features + verdict)
+    POST /threat                 — Concise threat card with remedy steps
+    GET  /remedies/<threat_type> — Actionable fix list for a given threat type
+    GET  /stats                  — In-session performance metrics
+    GET  /privacy-report         — Confirms zero external API calls
+    GET  /                       — Service health / index
 """
 
 import os
 import sys
 import time
 
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -24,50 +28,62 @@ sys.path.insert(0, os.path.dirname(__file__))
 from utils.feature_extractor import URLFeatureExtractor
 from utils.metrics import MetricsTracker
 from utils.privacy import PrivacyManager
+from core.remedy_engine import RemedyEngine
+from core.threat_classifier import ThreatClassifier
 from config import PHISHING_DETECTION_THRESHOLD
 
-# ── Optional trained model ──────────────────────────────────────────────────
+# ── Optional trained ML model ────────────────────────────────────────────────
+
 try:
     import joblib
     import numpy as np
 
-    MODEL_PATH = os.path.join("models", "phishing_model.joblib")
-    FEATURE_NAMES_PATH = os.path.join("models", "feature_names.joblib")
-    if os.path.exists(MODEL_PATH) and os.path.exists(FEATURE_NAMES_PATH):
-        _clf = joblib.load(MODEL_PATH)
-        _feature_names = joblib.load(FEATURE_NAMES_PATH)
+    _MODEL_PATH = os.path.join("models", "phishing_model.joblib")
+    _FEATURE_NAMES_PATH = os.path.join("models", "feature_names.joblib")
+
+    if os.path.exists(_MODEL_PATH) and os.path.exists(_FEATURE_NAMES_PATH):
+        _classifier = joblib.load(_MODEL_PATH)
+        _feature_names = joblib.load(_FEATURE_NAMES_PATH)
         _model_available = True
     else:
-        _clf = None
+        _classifier = None
         _feature_names = None
         _model_available = False
 except ImportError:
-    _clf = None
+    _classifier = None
     _feature_names = None
     _model_available = False
 
-# ── Flask app ───────────────────────────────────────────────────────────────
+# ── Flask app ────────────────────────────────────────────────────────────────
+
 app = Flask(__name__)
-# Allow the browser extension and local dashboard to call the API.
-# Chrome extensions bypass CORS via host_permissions in manifest.json;
-# these origins cover the local static dashboard and the React frontend.
+# Allow the browser extension (all origins via host_permissions) and
+# localhost access for local development and testing.
 CORS(app, origins=[
-    "http://localhost:3000",   # React behavior dashboard
-    "http://localhost:5050",   # phishing API itself (Swagger / testing)
-    "http://localhost:8080",   # static HTML phishing dashboard
-    "http://127.0.0.1:3000",
+    "http://localhost:5050",
     "http://127.0.0.1:5050",
-    "http://127.0.0.1:8080",
+    "http://localhost:5001",
+    "http://127.0.0.1:5001",
 ])
-metrics = MetricsTracker()
-privacy = PrivacyManager()
 
-RISK_THRESHOLD_HIGH = PHISHING_DETECTION_THRESHOLD['high']
-RISK_THRESHOLD_MEDIUM = PHISHING_DETECTION_THRESHOLD['medium']
+_metrics = MetricsTracker()
+_privacy = PrivacyManager()
+_remedy_engine = RemedyEngine()
+_threat_classifier = ThreatClassifier()
 
+_RISK_THRESHOLD_HIGH = PHISHING_DETECTION_THRESHOLD["high"]
+_RISK_THRESHOLD_MEDIUM = PHISHING_DETECTION_THRESHOLD["medium"]
+
+
+# ── Scoring helpers ──────────────────────────────────────────────────────────
 
 def _rule_based_score(features: dict) -> float:
-    """Compute a 0–1 phishing risk score from extracted features (no ML)."""
+    """
+    Compute a 0-1 phishing risk score from hand-crafted URL features.
+
+    Used when no trained model is available.
+    Each signal contributes a small weighted amount; the total is clamped to [0, 1].
+    """
     score = 0.0
     score += min(features.get("url_length", 0) / 200.0, 0.15)
     if features.get("contains_ip"):
@@ -77,7 +93,7 @@ def _rule_based_score(features: dict) -> float:
     if features.get("suspicious_tld"):
         score += 0.20
     if features.get("is_trusted_domain"):
-        score -= 0.30
+        score -= 0.30  # Trusted domain is a strong negative signal
     score += min(features.get("num_phishing_keywords", 0) * 0.07, 0.20)
     score += min(features.get("subdomain_count", 0) * 0.05, 0.15)
     score += min(features.get("num_at_signs", 0) * 0.10, 0.10)
@@ -85,176 +101,204 @@ def _rule_based_score(features: dict) -> float:
     return max(0.0, min(1.0, score))
 
 
-def _ml_score(features: dict) -> float:
-    """Use the trained RandomForest model to predict phishing probability."""
+def _ml_score(features: dict):
+    """
+    Run the trained RandomForest model and return the phishing probability.
+
+    Returns None if no model is loaded -- the caller should then fall back
+    to the rule-based score.
+    """
     if not _model_available:
         return None
-    x = np.array([[features.get(f, 0) for f in _feature_names]])
-    proba = _clf.predict_proba(x)[0]
-    # Binary classifier always returns [P(legitimate), P(phishing)]
-    if len(proba) != 2:
+    feature_vector = np.array([[features.get(f, 0) for f in _feature_names]])
+    probabilities = _classifier.predict_proba(feature_vector)[0]
+    # The classifier always outputs [P(legitimate), P(phishing)]
+    if len(probabilities) != 2:
         return None
-    return float(proba[1])
+    return float(probabilities[1])
 
 
 def _analyse_url(url: str) -> dict:
-    t_start = time.perf_counter()
+    """
+    Full URL analysis pipeline: extract features -> score -> classify.
+
+    :param url: Raw URL string from the caller
+    :returns: Dict containing verdict, scores, features, and latency
+    """
+    start_time = time.perf_counter()
 
     extractor = URLFeatureExtractor(url)
     features = extractor.extract_features()
 
-    ml = _ml_score(features)
-    rule = _rule_based_score(features)
-    risk_score = ml if ml is not None else rule
+    ml_probability = _ml_score(features)
+    rule_probability = _rule_based_score(features)
+    risk_score = ml_probability if ml_probability is not None else rule_probability
 
-    if risk_score >= RISK_THRESHOLD_HIGH:
+    if risk_score >= _RISK_THRESHOLD_HIGH:
         risk_level = "high"
         verdict = "PHISHING"
-    elif risk_score >= RISK_THRESHOLD_MEDIUM:
+    elif risk_score >= _RISK_THRESHOLD_MEDIUM:
         risk_level = "medium"
         verdict = "SUSPICIOUS"
     else:
         risk_level = "low"
         verdict = "SAFE"
 
-    latency_ms = (time.perf_counter() - t_start) * 1000
-    metrics.track_latency(latency_ms)
-    metrics.record_detection(verdict == "PHISHING")
+    latency_ms = (time.perf_counter() - start_time) * 1000
+    _metrics.track_latency(latency_ms)
+    _metrics.record_detection(verdict == "PHISHING")
 
     return {
-        "url": privacy.anonymize_url(url),
+        "url": _privacy.anonymize_url(url),
         "verdict": verdict,
         "risk_level": risk_level,
         "risk_score": round(risk_score, 4),
-        "ml_score": round(ml, 4) if ml is not None else None,
-        "rule_score": round(rule, 4),
+        "ml_score": round(ml_probability, 4) if ml_probability is not None else None,
+        "rule_score": round(rule_probability, 4),
         "features": features,
         "latency_ms": round(latency_ms, 2),
-        "model_used": "RandomForest" if ml is not None else "rule-based",
+        "model_used": "RandomForest" if ml_probability is not None else "rule-based",
     }
 
 
-# ── Routes ───────────────────────────────────────────────────────────────────
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/check-url", methods=["POST"])
 def check_url():
-    """Analyse a URL and return phishing risk details."""
+    """
+    Analyse a URL and return full phishing risk details including raw features.
+
+    Request body: {"url": "https://..."}
+    """
     if not request.is_json:
         return jsonify({"error": "Content-Type must be application/json"}), 415
-    data = request.get_json()
-    if data is None:
+
+    body = request.get_json()
+    if body is None:
         return jsonify({"error": "Invalid JSON body"}), 400
-    url = data.get("url", "").strip()
+
+    url = body.get("url", "").strip()
     if not url:
         return jsonify({"error": "No URL provided"}), 400
-    result = _analyse_url(url)
-    return jsonify(result), 200
+
+    analysis_result = _analyse_url(url)
+    return jsonify(analysis_result), 200
+
+
+@app.route("/threat", methods=["POST"])
+def threat():
+    """
+    Concise threat endpoint -- returns verdict + risk score + actionable remedy steps.
+
+    This is the endpoint the browser extension and monitor service should call
+    when they want a user-facing threat card, not a raw feature dump.
+
+    Request body: {"url": "https://..."}
+    Response: {
+        "verdict": "PHISHING" | "SUSPICIOUS" | "SAFE",
+        "risk_score": float,
+        "threat_type": str | null,
+        "severity": str,
+        "remedy_steps": [str, ...],
+        "description": str
+    }
+    """
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+
+    body = request.get_json()
+    if body is None:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
+    url = body.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+
+    analysis = _analyse_url(url)
+    verdict = analysis["verdict"]
+    risk_score = analysis["risk_score"]
+
+    # Map the verdict to a canonical threat type
+    threat_type = _threat_classifier.classify_url_threat(verdict, risk_score)
+
+    if threat_type:
+        remedy_card = _remedy_engine.get_remedy(threat_type)
+        severity = _threat_classifier.determine_severity(threat_type, risk_score)
+        response = {
+            "verdict": verdict,
+            "risk_score": risk_score,
+            "threat_type": threat_type,
+            "severity": severity,
+            "description": remedy_card["description"],
+            "remedy_steps": remedy_card["remedies"],
+            "latency_ms": analysis["latency_ms"],
+        }
+    else:
+        response = {
+            "verdict": "SAFE",
+            "risk_score": risk_score,
+            "threat_type": None,
+            "severity": "low",
+            "description": "No threats detected. This URL appears safe.",
+            "remedy_steps": [],
+            "latency_ms": analysis["latency_ms"],
+        }
+
+    return jsonify(response), 200
+
+
+@app.route("/remedies/<string:threat_type>", methods=["GET"])
+def get_remedies(threat_type):
+    """
+    Return the full remedy card for a specific threat type.
+
+    :param threat_type: One of phishing_url | anomalous_login |
+                        root_access_attempt | social_engineering |
+                        suspicious_process | usb_anomaly | network_anomaly
+    """
+    known_types = _remedy_engine.list_threat_types()
+
+    if threat_type not in known_types:
+        return jsonify({
+            "error": "Unknown threat type: '{}'".format(threat_type),
+            "known_types": known_types,
+        }), 404
+
+    remedy_card = _remedy_engine.get_remedy(threat_type)
+    return jsonify(remedy_card), 200
 
 
 @app.route("/stats", methods=["GET"])
 def stats():
-    """Return aggregated performance metrics."""
-    return jsonify(metrics.get_metrics()), 200
+    """Return aggregated in-session performance metrics (in-memory only)."""
+    return jsonify(_metrics.get_metrics()), 200
 
 
 @app.route("/privacy-report", methods=["GET"])
 def privacy_report():
-    """Confirm that zero external API calls have been made."""
-    report = privacy.get_privacy_report()
+    """Confirm that zero external API calls have been made this session."""
+    report = _privacy.get_privacy_report()
     return jsonify(report), 200
-
-
-_DASHBOARD_TEMPLATE = """<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sentinel Zero — Live Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <style>
-    body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:24px;}
-    h1{font-size:1.8rem;margin-bottom:4px;}
-    .subtitle{color:#94a3b8;margin-bottom:24px;}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:32px;}
-    .card{background:#1e293b;border-radius:12px;padding:20px;text-align:center;}
-    .card .value{font-size:2rem;font-weight:700;color:#38bdf8;}
-    .card .label{color:#94a3b8;font-size:.85rem;margin-top:4px;}
-    canvas{max-height:260px;}
-    .chart-box{background:#1e293b;border-radius:12px;padding:20px;}
-    .sla-ok{color:#4ade80;} .sla-warn{color:#f87171;}
-  </style>
-</head>
-<body>
-  <h1>🛡️ Sentinel Zero — Local Dashboard</h1>
-  <p class="subtitle">Real-time phishing detection metrics · 100% local processing</p>
-  <div class="grid" id="cards"></div>
-  <div class="chart-box"><canvas id="latencyChart"></canvas></div>
-  <script>
-    const API = '';
-    let latencyData = [];
-    let chart;
-    async function fetchStats(){
-      const r = await fetch(API+'/stats');
-      return r.json();
-    }
-    function renderCards(d){
-      const sla = (d.sla_compliance_rate*100).toFixed(1);
-      const slaClass = sla >= 95 ? 'sla-ok' : 'sla-warn';
-      document.getElementById('cards').innerHTML = `
-        <div class="card"><div class="value">${d.request_count}</div><div class="label">Total Checks</div></div>
-        <div class="card"><div class="value" style="color:#f87171">${d.phishing_detected}</div><div class="label">Phishing Detected</div></div>
-        <div class="card"><div class="value">${d.avg_latency_ms} ms</div><div class="label">Avg Latency</div></div>
-        <div class="card"><div class="value">${d.p95_latency_ms} ms</div><div class="label">p95 Latency</div></div>
-        <div class="card"><div class="value ${slaClass}">${sla}%</div><div class="label">SLA Compliance (&lt;200ms)</div></div>
-        <div class="card"><div class="value">${d.uptime_seconds}s</div><div class="label">Uptime</div></div>
-      `;
-    }
-    function initChart(){
-      const ctx = document.getElementById('latencyChart').getContext('2d');
-      chart = new Chart(ctx, {
-        type:'line',
-        data:{labels:[],datasets:[{label:'Latency (ms)',data:[],borderColor:'#38bdf8',
-          backgroundColor:'rgba(56,189,248,.1)',tension:.3,pointRadius:3}]},
-        options:{responsive:true,plugins:{legend:{labels:{color:'#e2e8f0'}}},
-          scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}},
-                  y:{ticks:{color:'#94a3b8'},grid:{color:'#334155'},beginAtZero:true}}}
-      });
-    }
-    function updateChart(d){
-      const lats = d.latency || [];
-      const labels = lats.map((_,i)=>i+1);
-      chart.data.labels = labels;
-      chart.data.datasets[0].data = lats;
-      chart.update('none');
-    }
-    async function refresh(){
-      try{
-        const d = await fetchStats();
-        renderCards(d);
-        updateChart(d);
-      }catch(e){console.error(e);}
-    }
-    initChart();
-    refresh();
-    setInterval(refresh, 3000);
-  </script>
-</body>
-</html>"""
-
-
-@app.route("/dashboard", methods=["GET"])
-def dashboard():
-    """Serve the live monitoring dashboard HTML page."""
-    return render_template_string(_DASHBOARD_TEMPLATE), 200
 
 
 @app.route("/", methods=["GET"])
 def index():
+    """Service health check and endpoint index."""
     return jsonify({
-        "name": "Sentinel Zero Local",
-        "description": "Real-time URL phishing detection API",
-        "endpoints": ["/check-url", "/stats", "/privacy-report", "/dashboard"],
+        "name": "Drift Analyzer -- Phishing Detection API",
+        "description": (
+            "Real-time URL phishing detection with actionable remedy steps. "
+            "Zero data storage. Local processing only."
+        ),
+        "endpoints": {
+            "POST /check-url": "Full URL analysis with raw features",
+            "POST /threat": "Concise threat card with remedy steps",
+            "GET /remedies/<threat_type>": "Remedy steps for a specific threat type",
+            "GET /stats": "In-session performance metrics",
+            "GET /privacy-report": "Confirms zero external API calls",
+        },
         "model": "RandomForest" if _model_available else "rule-based",
+        "ideology": "zero-storage · local-only · fast-detection · user-centric",
     }), 200
 
 
@@ -262,7 +306,7 @@ def index():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))
-    print(f"\n🛡️  Sentinel Zero Local — API starting on http://localhost:{port}")
-    print(f"   Model: {'RandomForest (trained)' if _model_available else 'rule-based fallback'}")
-    print(f"   Endpoints: /check-url  /stats  /privacy-report  /dashboard\n")
+    print("\n Drift Analyzer Phishing API -- starting on http://localhost:{}".format(port))
+    print("   Model: {}".format('RandomForest (trained)' if _model_available else 'rule-based fallback'))
+    print("   Endpoints: /check-url  /threat  /remedies/<type>  /stats  /privacy-report\n")
     app.run(host="0.0.0.0", port=port, debug=False)

@@ -1,6 +1,10 @@
-/* Sentinel Zero Extension Popup Styles */
+/* styles.css — Drift Analyzer Extension Popup
+ *
+ * Minimal dark UI — threat-first design.
+ * Green = safe, Red = threat. Nothing else matters.
+ */
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -10,154 +14,189 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   background: #0f172a;
   color: #e2e8f0;
-  width: 340px;
-  min-height: 420px;
+  width: 320px;
+  min-height: 200px;
 }
 
 .container {
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
 }
 
-/* Header */
+/* ── Header ────────────────────────────────────────────────────── */
+
 header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding-bottom: 12px;
+  text-align: center;
+  padding-bottom: 8px;
   border-bottom: 1px solid #1e293b;
 }
 
-.logo {
-  width: 40px;
-  height: 40px;
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  transition: background 0.3s;
 }
 
-h1 {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #38bdf8;
+.status-safe {
+  background: #14532d;
+  color: #4ade80;
+}
+
+.status-threat {
+  background: #7f1d1d;
+  color: #f87171;
+}
+
+.status-warning {
+  background: #78350f;
+  color: #fbbf24;
+}
+
+.service-name {
+  font-size: 0.75rem;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .tagline {
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
-/* URL check */
-.check-section {
-  display: flex;
-  gap: 8px;
-}
-
-#url-input {
-  flex: 1;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  color: #e2e8f0;
-  font-size: 0.8rem;
-  padding: 8px 10px;
-  outline: none;
-}
-
-#url-input:focus {
-  border-color: #38bdf8;
-}
-
-#check-btn {
-  background: #0284c7;
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 8px 14px;
-  transition: background 0.15s;
-}
-
-#check-btn:hover {
-  background: #0369a1;
-}
-
-/* Result box */
-.result-box {
-  border-radius: 10px;
-  font-size: 0.85rem;
-  padding: 12px 14px;
-}
-
-.result-box.hidden {
-  display: none;
-}
-
-.result-box.safe {
-  background: #14532d;
-  border: 1px solid #16a34a;
-}
-
-.result-box.suspicious {
-  background: #451a03;
-  border: 1px solid #d97706;
-}
-
-.result-box.phishing {
-  background: #450a0a;
-  border: 1px solid #dc2626;
-}
-
-.result-box.loading-state {
-  background: #1e293b;
-  color: #94a3b8;
-  text-align: center;
-}
-
-.verdict-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.verdict-emoji {
-  font-size: 1.3em;
-}
-
-.verdict-text {
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.score-row,
-.latency-row {
-  color: #cbd5e1;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
+  color: #475569;
   margin-top: 2px;
 }
 
-/* Stats */
-.stats-section h2 {
-  font-size: 0.85rem;
+/* ── Threat Card ────────────────────────────────────────────────── */
+
+.threat-card {
+  background: #1e293b;
+  border: 1px solid #dc2626;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.threat-card.warning {
+  border-color: #d97706;
+}
+
+.threat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.threat-icon {
+  font-size: 1.6rem;
+}
+
+.threat-type {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #f87171;
+  text-transform: capitalize;
+}
+
+.threat-card.warning .threat-type {
+  color: #fbbf24;
+}
+
+.threat-severity {
+  font-size: 0.7rem;
   color: #94a3b8;
-  margin-bottom: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.threat-score {
+  margin-left: auto;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f87171;
+}
+
+.threat-card.warning .threat-score {
+  color: #fbbf24;
+}
+
+.threat-description {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.remedy-section {
+  border-top: 1px solid #334155;
+  padding-top: 8px;
+}
+
+.remedy-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.remedy-list {
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.remedy-list li {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+/* ── Safe Card ──────────────────────────────────────────────────── */
+
+.safe-card {
+  background: #0f2a1a;
+  border: 1px solid #14532d;
+  border-radius: 10px;
+  padding: 14px 12px;
+  text-align: center;
+}
+
+.safe-message {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4ade80;
+}
+
+.safe-sub {
+  font-size: 0.72rem;
+  color: #475569;
+  margin-top: 4px;
+}
+
+/* ── Stats ──────────────────────────────────────────────────────── */
+
+.stats-section {
+  border-top: 1px solid #1e293b;
+  padding-top: 8px;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
-.stat-card {
-  background: #1e293b;
-  border-radius: 8px;
-  padding: 10px;
+.stat-item {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -165,7 +204,7 @@ h1 {
 }
 
 .stat-value {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #38bdf8;
 }
@@ -174,28 +213,15 @@ h1 {
   color: #f87171;
 }
 
-.stat-value.warn {
-  color: #fbbf24;
-}
-
 .stat-label {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-/* Footer */
-footer {
-  text-align: center;
-  border-top: 1px solid #1e293b;
-  padding-top: 10px;
-}
+/* ── Utility ────────────────────────────────────────────────────── */
 
-footer a {
-  color: #38bdf8;
-  font-size: 0.78rem;
-  text-decoration: none;
-}
-
-footer a:hover {
-  text-decoration: underline;
+.hidden {
+  display: none !important;
 }
