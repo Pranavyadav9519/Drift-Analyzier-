@@ -3,54 +3,63 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sentinel Zero</title>
+  <title>Drift Analyzer</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="container">
+
+    <!-- Header with status badge -->
     <header>
-      <img src="icon48.png" alt="Sentinel Zero" class="logo" />
-      <h1>Sentinel Zero</h1>
-      <p class="tagline">Phishing Detection · 100% Local</p>
+      <div id="status-badge" class="status-badge status-safe">
+        <span id="status-icon">🛡️</span>
+        <span id="status-text">Monitoring</span>
+      </div>
+      <p class="service-name">Drift Analyzer</p>
+      <p class="tagline">Silent threat detection · 100% local</p>
     </header>
 
-    <section class="check-section">
-      <input
-        id="url-input"
-        type="url"
-        placeholder="Paste a URL to check…"
-        autocomplete="off"
-      />
-      <button id="check-btn">Check URL</button>
+    <!-- Last threat card — hidden when no threat detected -->
+    <section id="threat-card" class="threat-card hidden">
+      <div class="threat-header">
+        <span id="threat-icon" class="threat-icon">⚠️</span>
+        <div>
+          <p id="threat-type-label" class="threat-type">Threat Detected</p>
+          <p id="threat-severity" class="threat-severity">HIGH</p>
+        </div>
+        <span id="threat-score" class="threat-score">0%</span>
+      </div>
+      <p id="threat-description" class="threat-description"></p>
+      <div class="remedy-section">
+        <p class="remedy-title">What to do right now:</p>
+        <ol id="remedy-list" class="remedy-list"></ol>
+      </div>
     </section>
 
-    <div id="result-box" class="result-box hidden"></div>
+    <!-- Safe state card — shown when no active threat -->
+    <section id="safe-card" class="safe-card">
+      <p class="safe-message">✅ No threats detected on the current page.</p>
+      <p class="safe-sub">Drift Analyzer is watching silently in the background.</p>
+    </section>
 
+    <!-- Session stats -->
     <section class="stats-section">
-      <h2>Session Stats</h2>
       <div class="stats-grid">
-        <div class="stat-card">
-          <span id="stat-checks" class="stat-value">—</span>
+        <div class="stat-item">
+          <span id="stat-total" class="stat-value">0</span>
           <span class="stat-label">Checks</span>
         </div>
-        <div class="stat-card">
-          <span id="stat-phishing" class="stat-value danger">—</span>
-          <span class="stat-label">Phishing</span>
+        <div class="stat-item">
+          <span id="stat-threats" class="stat-value danger">0</span>
+          <span class="stat-label">Threats</span>
         </div>
-        <div class="stat-card">
-          <span id="stat-suspicious" class="stat-value warn">—</span>
-          <span class="stat-label">Suspicious</span>
-        </div>
-        <div class="stat-card">
+        <div class="stat-item">
           <span id="stat-latency" class="stat-value">—</span>
-          <span class="stat-label">Avg Latency</span>
+          <span class="stat-label">Avg ms</span>
         </div>
       </div>
     </section>
 
-    <footer>
-      <a href="http://localhost:5050/dashboard" target="_blank">Open Dashboard ↗</a>
-    </footer>
   </div>
   <script src="popup.js"></script>
 </body>

@@ -1,119 +1,192 @@
 /**
- * content.js — Sentinel Zero Chrome Extension
- * Intercepts link clicks and checks URLs against the Sentinel Zero Local API.
+ * content.js — Drift Analyzer URL Interceptor
+ *
+ * Intercepts all link clicks on the page and sends the destination URL
+ * to the Drift Analyzer phishing API before allowing navigation.
+ *
+ * If the URL is PHISHING or SUSPICIOUS:
+ *   - Navigation is blocked
+ *   - An inline warning banner is shown with the threat verdict and top remedy steps
+ *   - The background script is notified to show a native OS notification
+ *
+ * If SAFE: navigation proceeds normally (zero user friction on safe clicks).
+ *
+ * Privacy: only the URL is sent to localhost — nothing leaves the device.
  */
 
-const API_BASE = "http://localhost:5050";
-const CHECKED_CACHE = new Map(); // url -> verdict
+const PHISHING_API = "http://localhost:5050";
+
+// Cache recently checked URLs so we don't re-check the same link repeatedly.
+// Map<url, threatData> — limited to 200 entries to avoid memory bloat.
+const URL_CACHE = new Map();
 const CACHE_MAX_SIZE = 200;
-const HIGH_RISK_VERDICTS = new Set(["PHISHING", "SUSPICIOUS"]);
 
-// Schemes that must never be sent to the API or followed for analysis
-const SAFE_TO_ANALYSE_SCHEMES = new Set(["http:", "https:"]);
+// Only analyse http and https URLs — skip javascript:, data:, #anchors, etc.
+const SAFE_SCHEMES = new Set(["http:", "https:"]);
 
-/** Banner IDs to avoid duplicates */
-const BANNER_AUTO_DISMISS_MS = 8000;
-const BANNER_ID = "sentinel-zero-banner";
+const BANNER_DISMISS_DELAY_MS = 10000;  // Auto-dismiss warning banner after 10 seconds
+const BANNER_ELEMENT_ID = "drift-analyzer-banner";
 
-function removeBanner() {
-  const existing = document.getElementById(BANNER_ID);
-  if (existing) existing.remove();
+// ── Cache helpers ─────────────────────────────────────────────────────────────
+
+function cacheGet(url) {
+  return URL_CACHE.get(url) || null;
 }
 
-function showBanner(verdict, url, riskScore) {
-  removeBanner();
-  const isHigh = verdict === "PHISHING";
-  const bgColor = isHigh ? "#dc2626" : "#d97706";
-  const emoji = isHigh ? "🚫" : "⚠️";
-  const banner = document.createElement("div");
-  banner.id = BANNER_ID;
-  banner.style.cssText = `
-    position: fixed; top: 0; left: 0; right: 0; z-index: 2147483647;
-    background: ${bgColor}; color: #fff; font-family: system-ui, sans-serif;
-    padding: 12px 20px; display: flex; align-items: center; gap: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.4); font-size: 14px;
-  `;
-  banner.innerHTML = `
-    <span style="font-size:1.4em">${emoji}</span>
-    <span>
-      <strong>Sentinel Zero:</strong> This link looks
-      <strong>${verdict}</strong> (risk score: ${(riskScore * 100).toFixed(0)}%).
-      Proceed with caution.
-    </span>
-    <button id="sz-dismiss" style="margin-left:auto;background:rgba(255,255,255,.25);
-      border:none;color:#fff;padding:4px 12px;border-radius:6px;cursor:pointer;">
-      Dismiss
-    </button>
-  `;
-  document.body.prepend(banner);
-  document.getElementById("sz-dismiss").addEventListener("click", removeBanner);
-  // Auto-dismiss after BANNER_AUTO_DISMISS_MS
-  setTimeout(removeBanner, BANNER_AUTO_DISMISS_MS);
-}
-
-async function checkUrl(url) {
-  if (CHECKED_CACHE.has(url)) return CHECKED_CACHE.get(url);
-  // Evict oldest entries when cache is full
-  if (CHECKED_CACHE.size >= CACHE_MAX_SIZE) {
-    const firstKey = CHECKED_CACHE.keys().next().value;
-    CHECKED_CACHE.delete(firstKey);
+function cacheSet(url, threatData) {
+  // Evict the oldest entry if we're at the size limit
+  if (URL_CACHE.size >= CACHE_MAX_SIZE) {
+    const oldestKey = URL_CACHE.keys().next().value;
+    URL_CACHE.delete(oldestKey);
   }
+  URL_CACHE.set(url, threatData);
+}
+
+// ── API call ─────────────────────────────────────────────────────────────────
+
+async function checkUrlThreat(url) {
+  const cached = cacheGet(url);
+  if (cached !== null) return cached;
+
   try {
-    const resp = await fetch(`${API_BASE}/check-url`, {
+    const response = await fetch(PHISHING_API + "/threat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url: url }),
     });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    CHECKED_CACHE.set(url, data);
-    // Persist stats to extension storage
-    chrome.storage.local.get("sz_stats", (res) => {
-      const stats = res.sz_stats || { checks: 0, phishing: 0, suspicious: 0 };
-      stats.checks += 1;
-      if (data.verdict === "PHISHING") stats.phishing += 1;
-      if (data.verdict === "SUSPICIOUS") stats.suspicious += 1;
-      stats.last_check = { url: data.url, verdict: data.verdict, score: data.risk_score };
-      chrome.storage.local.set({ sz_stats: stats });
+
+    if (!response.ok) return null;
+
+    const threatData = await response.json();
+    cacheSet(url, threatData);
+
+    // Update session stats in storage so the popup can display them
+    chrome.storage.local.get("drift_stats", function(result) {
+      const stats = result.drift_stats || { total: 0, threats: 0 };
+      stats.total += 1;
+      if (threatData.threat_type) stats.threats += 1;
+      chrome.storage.local.set({ drift_stats: stats });
     });
-    return data;
+
+    return threatData;
+
   } catch {
+    // API unreachable — fail open (allow navigation) rather than blocking the user
     return null;
   }
 }
 
-document.addEventListener(
-  "click",
-  async (event) => {
-    const anchor = event.target.closest("a[href]");
-    if (!anchor) return;
-    const href = anchor.href;
-    if (!href) return;
-    // Only analyse http/https URLs; skip javascript:, data:, vbscript:, #, etc.
-    let parsed;
-    try {
-      parsed = new URL(href);
-      if (!SAFE_TO_ANALYSE_SCHEMES.has(parsed.protocol)) return;
-    } catch {
-      return; // malformed URL — allow navigation
-    }
+// ── Warning banner ────────────────────────────────────────────────────────────
 
-    // Prevent navigation immediately so we can check the URL first
-    event.preventDefault();
+function removeBanner() {
+  const existing = document.getElementById(BANNER_ELEMENT_ID);
+  if (existing) existing.remove();
+}
 
-    const result = await checkUrl(href);
-    if (!result) {
-      // API unreachable — navigate as normal
-      window.location.href = href;
-      return;
-    }
-    if (HIGH_RISK_VERDICTS.has(result.verdict)) {
-      showBanner(result.verdict, href, result.risk_score);
-      // Do NOT navigate — banner is shown instead
-    } else {
-      // SAFE verdict — navigate programmatically
-      window.location.href = href;
-    }
-  },
-  true // capture phase so we intercept before navigation
-);
+function showWarningBanner(threatData) {
+  removeBanner();
+
+  const isHighSeverity = threatData.severity === "high" || threatData.severity === "critical";
+  const backgroundColor = isHighSeverity ? "#dc2626" : "#d97706";
+  const icon = isHighSeverity ? "🚨" : "⚠️";
+  const threatLabel = (threatData.threat_type || "threat").replace(/_/g, " ").toUpperCase();
+  const scorePercent = Math.round((threatData.risk_score || 0) * 100);
+
+  // Build top 2 remedy steps for the inline banner (full list is in the popup)
+  const topRemedies = (threatData.remedy_steps || []).slice(0, 2);
+  const remedyHTML = topRemedies
+    .map(function(step) { return "<li>" + escapeHtml(step) + "</li>"; })
+    .join("");
+
+  const banner = document.createElement("div");
+  banner.id = BANNER_ELEMENT_ID;
+  banner.style.cssText = [
+    "position: fixed",
+    "top: 0",
+    "left: 0",
+    "right: 0",
+    "z-index: 2147483647",
+    "background: " + backgroundColor,
+    "color: #fff",
+    "font-family: system-ui, sans-serif",
+    "padding: 12px 16px",
+    "box-shadow: 0 2px 12px rgba(0,0,0,.5)",
+    "font-size: 13px",
+    "line-height: 1.5",
+  ].join("; ");
+
+  banner.innerHTML = [
+    "<div style='display:flex;align-items:flex-start;gap:10px'>",
+    "  <span style='font-size:1.4em'>" + icon + "</span>",
+    "  <div style='flex:1'>",
+    "    <strong>Drift Analyzer — " + threatLabel + " DETECTED</strong>",
+    "    <span style='opacity:.8;margin-left:8px'>Risk: " + scorePercent + "%</span>",
+    "    <p style='margin:4px 0 0;opacity:.9'>" + escapeHtml(threatData.description || "") + "</p>",
+    topRemedies.length > 0
+      ? "<ol style='margin:6px 0 0;padding-left:18px;opacity:.9'>" + remedyHTML + "</ol>"
+      : "",
+    "  </div>",
+    "  <button id='drift-dismiss-btn' style='",
+    "    background:rgba(255,255,255,.25);border:none;color:#fff;",
+    "    padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;",
+    "  '>Dismiss</button>",
+    "</div>",
+  ].join("");
+
+  document.body.prepend(banner);
+
+  document.getElementById("drift-dismiss-btn").addEventListener("click", removeBanner);
+  setTimeout(removeBanner, BANNER_DISMISS_DELAY_MS);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
+
+// ── Click interceptor ─────────────────────────────────────────────────────────
+
+document.addEventListener("click", async function(event) {
+  const anchor = event.target.closest("a[href]");
+  if (!anchor) return;
+
+  const href = anchor.href;
+  if (!href) return;
+
+  // Only intercept http/https links
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(href);
+    if (!SAFE_SCHEMES.has(parsedUrl.protocol)) return;
+  } catch {
+    return;  // Malformed URL — let the browser handle it
+  }
+
+  // Hold navigation while we check the URL
+  event.preventDefault();
+
+  const threatData = await checkUrlThreat(href);
+
+  if (!threatData) {
+    // API unreachable — navigate normally so we never block the user unnecessarily
+    window.location.href = href;
+    return;
+  }
+
+  if (threatData.threat_type) {
+    // Threat found — show inline banner and notify the background script
+    showWarningBanner(threatData);
+
+    // Tell the background script so it can show a native OS notification
+    // and update the extension badge colour
+    chrome.runtime.sendMessage({
+      type: "THREAT_DETECTED",
+      payload: threatData,
+    });
+  } else {
+    // Safe — navigate programmatically
+    window.location.href = href;
+  }
+
+}, true);  // Capture phase — intercepts before the browser handles the click

@@ -1,273 +1,243 @@
-# 🛡️ Sentinel Zero — Privacy-First On-Device Identity & Link Shield
+# Drift Analyzer
 
-> **Hackathon MVP** · Phishing URL Detection · Login Anomaly Detection · Auto-Healing · Real-time Dashboard
+> **Quietly observe. Instantly detect. Tell you exactly what to do.**
 
-Sentinel Zero is a **dual-protection security system** that runs 100% locally on your machine.  
-It detects phishing links in real time *and* learns your normal login behaviour to flag suspicious sessions — with zero data leaving your device.
+Drift Analyzer is a local-only threat detection system. It silently watches your browser activity and system behavior, detects phishing, anomalous access, root escalation attempts, and social engineering — then triggers an alert with step-by-step remedy instructions.
 
----
-
-## 🎯 What It Does
-
-| Feature | Description |
-|---|---|
-| 🔗 Phishing Detection | Flask API analyses every clicked URL — rule-based heuristics + trained RandomForest |
-| 🔌 Browser Extension | Chromium extension intercepts link clicks and shows SAFE / SUSPICIOUS / PHISHING badge |
-| 🔐 Login Anomaly Detection | Isolation Forest ML learns normal login patterns and flags unusual sessions |
-| ⚠️ Risk Scoring | Combines ML anomaly score + new device + unusual hour → 0–100 risk score |
-| 🤖 Decision Engine | Low → allow · Medium → alert · High → terminate session + force password reset |
-| 🔄 Auto-Healing | Blocks navigation, locks sessions, or forces password reset automatically |
-| 🖥️ Dual Dashboard | Live phishing stats (HTML) + React login-anomaly dashboard |
-| 🔒 Privacy-First | 100% local processing — no URLs, emails, or credentials ever leave the machine |
+**Zero data storage. Zero external calls. Fast detection. User-centric alerts.**
 
 ---
 
-## 🧱 Architecture
+## What It Does
 
-```
-╔══════════════════════════════════════════════════════════════════════════╗
-║                        SENTINEL ZERO — HYBRID SYSTEM                    ║
-╠══════════════════════════╦═══════════════════════════════════════════════╣
-║  LAYER 1 — BROWSER       ║  LAYER 3 — BEHAVIOR ANOMALY                  ║
-║  Chrome Extension        ║  Node.js Backend (port 5000)                 ║
-║  • Intercepts link clicks║  • JWT auth, login event capture             ║
-║  • Calls phishing API    ║  • Calls ML service → risk score              ║
-║  • Shows risk badge      ║  • Auto-healing: terminate / reset            ║
-╠══════════════════════════╬═══════════════════════════════════════════════╣
-║  LAYER 2 — PHISHING API  ║  LAYER 3b — ML MICROSERVICE                  ║
-║  Flask (port 5050)       ║  Python / Flask (port 5001)                  ║
-║  • Extract 22 URL        ║  • Isolation Forest (unsupervised)            ║
-║    features              ║  • Trains on user login history               ║
-║  • Rule-based scoring    ║  • Returns anomaly score per login            ║
-║  • RandomForest model    ║                                               ║
-║  • <200 ms verdict       ║                                               ║
-╠══════════════════════════╩═══════════════════════════════════════════════╣
-║  LAYER 4 — DASHBOARDS                                                    ║
-║  Phishing dashboard  → http://localhost:8080  (static HTML + Chart.js)  ║
-║  Behavior dashboard  → http://localhost:3000  (React + Tailwind)        ║
-╚══════════════════════════════════════════════════════════════════════════╝
-                            ↕ shared data store
-                       MongoDB (port 27017)
-```
-
-**Why this design?**
-- **No cloud dependency** — everything runs in Docker on your laptop
-- **Two orthogonal threats** — phishing links (Layer 2) vs. stolen credentials (Layer 3) need different ML models
-- **Isolation Forest** requires zero labelled anomaly data — it learns "normal" and flags deviations
-- **RandomForest** for URL classification achieves >90% accuracy on 22 hand-crafted features
+| Component | What it watches | How it alerts |
+|---|---|---|
+| **Browser Extension** | Every URL you navigate to | Red badge + inline banner + OS notification |
+| **Phishing API** | URL features (22 signals, RandomForest) | Returns verdict + remedy steps in <200ms |
+| **ML Service** | Login/access time patterns (Isolation Forest) | Returns threat score + remedy steps |
+| **System Monitor** | Process activity, privilege escalation, network connections | Native OS desktop notification |
 
 ---
 
-## 📁 Folder Structure
+## Project Structure
 
 ```
-sentinel-zero/
+drift-analyzer/
+├── app.py                     # Flask phishing detection API (port 5050)
+├── config.py                  # Shared configuration
+├── requirements.txt
+├── Dockerfile
 │
-├── 🔗 PHISHING LINK DETECTION
-│   ├── app.py                      # Flask API: /check-url, /stats, /dashboard
-│   ├── config.py                   # Thresholds (high=0.8, medium=0.5)
-│   ├── Dockerfile                  # Container for the phishing API
+├── ml-service/                # Isolation Forest anomaly detection (port 5001)
+│   ├── app.py
+│   ├── model.py
 │   ├── requirements.txt
-│   ├── train_model.py              # Train RandomForest on data/
-│   ├── utils/
-│   │   ├── feature_extractor.py    # 22 URL features (entropy, TLD, keywords…)
-│   │   ├── metrics.py              # Latency tracker, SLA compliance
-│   │   └── privacy.py             # URL anonymisation, PII stripping
-│   ├── models/
-│   │   ├── phishing_model.joblib   # Pre-trained RandomForest
-│   │   └── feature_names.joblib   # Feature order for inference
-│   ├── data/
-│   │   ├── phishing_urls.csv       # ~550 labelled phishing URLs
-│   │   └── legitimate_urls.csv    # ~550 labelled legitimate URLs
-│   ├── extension/                  # Chromium extension (Manifest V3)
-│   │   ├── manifest.json
-│   │   ├── content.js              # Click interceptor
-│   │   └── popup.{html,js}        # URL check UI
-│   ├── dashboard/                  # Standalone phishing stats dashboard
-│   │   ├── index.html
-│   │   ├── dashboard.js
-│   │   └── styles.css
-│   └── tests/
-│       └── test_detector.py        # 43 unit tests
+│   └── Dockerfile
 │
-├── 🔐 BEHAVIOR ANOMALY DETECTION
-│   ├── backend/                    # Node.js Express API
-│   │   └── src/
-│   │       ├── routes/auth.js      # POST /login — capture + score login
-│   │       ├── utils/riskEngine.js # Risk score + auto-healing logic
-│   │       └── server.js
-│   ├── ml-service/                 # Python Flask ML microservice
-│   │   ├── app.py                  # POST /train, POST /predict
-│   │   ├── model.py                # Isolation Forest wrapper
-│   │   └── seed_data.py           # Demo login events for MongoDB
-│   └── frontend/                   # React + Tailwind security dashboard
-│       └── src/pages/DashboardPage.jsx
+├── core/                      # Shared detection logic (no UI, no DB)
+│   ├── remedy_engine.py       # Maps threat types to actionable fix steps
+│   ├── threat_classifier.py   # Converts raw scores to canonical threat types
+│   ├── logger.py              # In-memory circular event buffer
+│   └── __init__.py
 │
-└── docker-compose.yml              # Single command to start all 6 services
+├── monitor/                   # Silent background system observer
+│   ├── system_monitor.py      # Orchestrates all monitoring threads
+│   ├── process_analyzer.py    # Detects suspicious processes + privilege escalation
+│   ├── network_analyzer.py    # Detects unusual network connections
+│   └── requirements.txt
+│
+├── extension/                 # Minimal browser extension (Chrome/Edge)
+│   ├── manifest.json
+│   ├── background.js          # Service worker: badge + OS notifications
+│   ├── content.js             # URL interceptor on every page
+│   ├── popup.html             # Threat card + remedy list
+│   ├── popup.js
+│   └── styles.css
+│
+├── utils/                     # Feature extraction + privacy utilities
+│   ├── feature_extractor.py
+│   ├── privacy.py
+│   └── metrics.py
+│
+├── models/                    # Pre-trained ML model files (not committed to git)
+│   ├── phishing_model.joblib
+│   └── feature_names.joblib
+│
+├── tests/
+│   └── test_detector.py
+│
+└── docker-compose.yml         # Only 2 services: phishing-api + ml-service
 ```
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### Option A — Docker Compose (Recommended)
+### Option 1 — Docker (recommended)
 
 ```bash
-docker-compose up --build
+docker compose up
 ```
 
-| Service | URL | Purpose |
-|---|---|---|
-| Phishing API | http://localhost:5050 | `/check-url`, `/stats`, `/privacy-report` |
-| Phishing Dashboard | http://localhost:8080 | Live phishing metrics chart |
-| Behavior Backend | http://localhost:5000 | Login auth + risk scoring |
-| ML Service | http://localhost:5001 | Isolation Forest `/train` + `/predict` |
-| Behavior Dashboard | http://localhost:3000 | React anomaly dashboard |
-| MongoDB | localhost:27017 | Login event storage |
+This starts both core services:
+- Phishing API: http://localhost:5050
+- ML Service: http://localhost:5001
 
-### Option B — Manual (Python only, for demo)
+### Option 2 — Local Python
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# (Optional) retrain the RandomForest model
-python train_model.py          # prints accuracy, saves models/phishing_model.joblib
+# Train the model (first time only)
+python train_model.py
 
-# Start the phishing detection API
-python app.py                  # → http://localhost:5050
+# Start the phishing API
+python app.py
 
-# Open the dashboard
-open dashboard/index.html      # or browse to http://localhost:5050/dashboard
+# In a separate terminal, start the ML service
+cd ml-service && python app.py
 
-# Load the extension in Chrome
-# chrome://extensions → Developer mode → Load unpacked → select extension/
+# In a separate terminal, start the system monitor
+cd monitor && python system_monitor.py
 ```
 
----
+### Load the Browser Extension
 
-## 🔌 Browser Extension Setup
-
-1. Open **chrome://extensions**
-2. Enable **Developer mode** (top-right toggle)
+1. Open Chrome → `chrome://extensions/`
+2. Enable **Developer mode** (top right toggle)
 3. Click **Load unpacked** → select the `extension/` folder
-4. The Sentinel Zero icon appears in the toolbar — click to check any URL manually
-
-> The extension intercepts *every* link click, sends the URL to `http://localhost:5050/check-url`, and shows a warning banner for SUSPICIOUS or PHISHING verdicts.
+4. The Drift Analyzer badge should appear in your toolbar (green = active)
 
 ---
 
-## 🔑 API Reference
+## API Reference
 
-### Phishing Detection API (`http://localhost:5050`)
+### Phishing API (`localhost:5050`)
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/check-url` | Analyse a URL → verdict + risk score |
-| `GET` | `/stats` | Aggregated latency and detection metrics |
-| `GET` | `/privacy-report` | Confirm zero external API calls |
-| `GET` | `/dashboard` | Embedded live dashboard |
+#### `POST /threat`
+Concise threat card — the endpoint the extension uses for user-facing alerts.
 
-**Example:**
-```bash
-curl -s -X POST http://localhost:5050/check-url \
-  -H 'Content-Type: application/json' \
-  -d '{"url": "http://paypal-secure-login.xyz/account/verify"}' | python -m json.tool
+**Request:**
+```json
+{ "url": "http://paypal-secure-login.xyz/verify?token=abc" }
 ```
 
 **Response:**
 ```json
 {
   "verdict": "PHISHING",
-  "risk_score": 0.87,
-  "risk_level": "high",
-  "latency_ms": 12.4,
-  "model_used": "RandomForest"
+  "risk_score": 0.92,
+  "threat_type": "phishing_url",
+  "severity": "high",
+  "description": "A URL you were about to visit shows strong signs of being a phishing page.",
+  "remedy_steps": [
+    "Do NOT click the link or enter any information on that page.",
+    "Close the tab immediately if you already opened it.",
+    "Report the URL to Google Safe Browsing.",
+    "If you typed a password there, change it on the real site right now.",
+    "Enable two-factor authentication on any account that may be affected.",
+    "Run a quick antivirus scan to check for drive-by malware downloads."
+  ],
+  "latency_ms": 18.4
 }
 ```
 
-### Behavior Anomaly Backend (`http://localhost:5000`)
+#### `POST /check-url`
+Full analysis with raw feature vector (for debugging/research).
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/auth/signup` | Create account |
-| `POST` | `/api/auth/login` | Login + receive risk score |
-| `GET` | `/api/behavior/history` | Login history |
-| `GET` | `/api/risk/alerts` | Security alerts |
-| `GET` | `/api/dashboard/stats` | Aggregated dashboard stats |
+#### `GET /remedies/<threat_type>`
+Returns the full remedy card for any threat type.
+
+**Supported threat types:**
+- `phishing_url`
+- `anomalous_login`
+- `root_access_attempt`
+- `social_engineering`
+- `suspicious_process`
+- `usb_anomaly`
+- `network_anomaly`
+
+**Example:**
+```bash
+curl http://localhost:5050/remedies/root_access_attempt
+```
+
+#### `GET /stats`
+In-session performance metrics (in-memory only, nothing persisted).
+
+#### `GET /privacy-report`
+Confirms zero external API calls have been made.
 
 ---
 
-## 📊 Risk Scoring Logic
+### ML Service (`localhost:5001`)
 
-### Phishing URL Scoring (0–1)
+#### `POST /threat/predict`
+Detect anomalous login/access patterns and return remedy steps.
 
-```
-score = 0
-score += url_length / 200          # max +0.15  — long URLs are suspicious
-score += 0.20  if contains_ip      # IP address instead of domain
-score += 0.10  if not has_https    # no encryption
-score += 0.20  if suspicious_tld   # .xyz, .top, .club, .tk …
-score -= 0.30  if trusted_domain   # google.com, github.com …
-score += keywords × 0.07           # "login", "verify", "paypal" …
-score += subdomains × 0.05         # many subdomains = suspicious
-─────────────────────────────────────────
-≥ 0.80 → PHISHING (block navigation)
-≥ 0.50 → SUSPICIOUS (show warning)
-< 0.50 → SAFE (allow navigation)
+**Request:**
+```json
+{
+  "userId": "user-123",
+  "loginHour": 3,
+  "loginDayOfWeek": 6,
+  "isNewDevice": 1
+}
 ```
 
-### Login Anomaly Scoring (0–100)
+**Response:**
+```json
+{
+  "is_threat": true,
+  "anomaly_score": -0.24,
+  "threat_type": "anomalous_login",
+  "severity": "medium",
+  "description": "A login event was detected that falls outside your normal usage patterns.",
+  "remedy_steps": [
+    "Check your active sessions and log out of all unfamiliar devices.",
+    "Change your password immediately.",
+    "Enable two-factor authentication.",
+    ...
+  ]
+}
+```
 
-```
-score = 0
-score += ML anomaly contribution   # Isolation Forest score × 100 (max 50)
-score += 25  if new device         # user-agent never seen before
-score += 25  if unusual hour       # before 8am or after 10pm
-─────────────────────────────────────────
-≥ 70 → HIGH   → terminate session + force password reset
-40–69 → MEDIUM → alert user, mark account at_risk
-< 40  → LOW   → allow login
-```
+#### `POST /train`
+Train an Isolation Forest model for a user (in-memory, session-only).
+
+#### `POST /predict`
+Raw anomaly score without remedy steps.
 
 ---
 
-## 🧪 Testing
+## Key Principles
+
+1. **Zero Data Storage** — Nothing persists to disk or database. All models and events live in RAM and are wiped on restart.
+2. **Local Only** — No external API calls. No cloud. No telemetry. Your data never leaves your device.
+3. **Fast Detection** — Phishing checks in <200ms. Anomaly scoring in real time.
+4. **User-Centric Alerts** — Every threat comes with a numbered list of "what to do right now" steps.
+5. **Minimal UI** — Extension badge (green/red) + native OS notification. No dashboard to babysit.
+
+---
+
+## Running Tests
 
 ```bash
-# Unit tests (43 tests — feature extraction, privacy, metrics)
+pip install -r requirements.txt
 python -m pytest tests/ -v
-
-# End-to-end validation (start API first with `python app.py`)
-python test_end_to_end.py
-
-# Quick smoke test of the phishing API
-curl -X POST http://localhost:5050/check-url \
-  -H 'Content-Type: application/json' \
-  -d '{"url": "https://www.google.com"}'
-# → {"verdict": "SAFE", ...}
 ```
 
 ---
 
-## 🎤 2-Minute Hackathon Pitch
+## Threat Types and Remedies
 
-> **"Every 39 seconds a new phishing attack happens. Traditional antivirus waits for signature updates. Sentinel Zero detects it in under 200 milliseconds — entirely on your machine."**
-
-Sentinel Zero is a **dual-threat security agent**:
-
-1. **Link Shield** — Our RandomForest model (trained on 1,000+ URLs, >90% accuracy) inspects every link you click via a Chrome extension. Phishing links are blocked instantly; the verdict is shown in a banner.
-
-2. **Identity Guard** — Isolation Forest learns your normal login patterns. A 3am login from a new device scores 95/100 — session terminated, password reset triggered automatically.
-
-**Key differentiators:**
-- 🔒 Zero data leaves your machine (privacy report proves it)
-- ⚡ Sub-200ms detection latency (p95 < 200ms SLA)
-- 🐳 One command to deploy: `docker-compose up --build`
-- 📖 Clean, readable code — every decision explained in comments
-
----
-
-## 📄 License
-
-MIT — see [LICENSE](LICENSE)
+| Threat Type | Trigger | Severity | Key Remedy |
+|---|---|---|---|
+| `phishing_url` | URL risk score ≥ 0.5 | High | Don't click, change password if entered |
+| `anomalous_login` | Isolation Forest anomaly | Medium | Check sessions, change password, enable 2FA |
+| `root_access_attempt` | Privilege escalation detected | Critical | Deny request, disconnect, run AV scan |
+| `social_engineering` | Behavioural manipulation patterns | High | Verify via separate channel, never share OTP |
+| `suspicious_process` | Known malicious process name | Medium | Identify, terminate, run AV scan |
+| `usb_anomaly` | Unexpected USB device | Medium | Remove device, check auto-launched files |
+| `network_anomaly` | Connection to suspicious port | Medium | Check netstat, block with firewall |
