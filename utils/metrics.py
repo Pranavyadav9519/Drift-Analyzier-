@@ -18,6 +18,7 @@ class MetricsTracker:
         self._request_count: int = 0
         self._phishing_detected: int = 0
         self._start_time: float = time.time()
+        self.recent_threats: deque = deque(maxlen=50)
 
     # ------------------------------------------------------------------ #
     # Recording helpers                                                     #
@@ -37,8 +38,10 @@ class MetricsTracker:
     def track_sla_compliance(self, compliance_value: bool) -> None:
         self.sla_compliance.append(compliance_value)
 
-    def record_detection(self, is_phishing: bool) -> None:
+    def record_detection(self, is_phishing: bool, threat_details: dict = None) -> None:
         self._phishing_detected += int(is_phishing)
+        if is_phishing and threat_details:
+            self.recent_threats.appendleft(threat_details)
 
     # ------------------------------------------------------------------ #
     # Aggregated statistics                                                 #
@@ -86,4 +89,5 @@ class MetricsTracker:
             "detection_rates": list(self.detection_rates),
             "false_positives": list(self.false_positives),
             "sla_compliance": list(self.sla_compliance),
+            "recent_threats": list(self.recent_threats),
         }

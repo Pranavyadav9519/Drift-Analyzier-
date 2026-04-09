@@ -8,3 +8,4 @@ tldextract
 validators
 python-dotenv
 pytest
+gunicorn
