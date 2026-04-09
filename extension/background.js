@@ -18,6 +18,16 @@ const BADGE_SAFE = "#16a34a";       // Green — no active threat
 const BADGE_THREAT = "#dc2626";     // Red — threat detected
 const BADGE_WARNING = "#d97706";    // Amber — suspicious
 
+// ── Dashboard event push ──────────────────────────────────────────────────────
+// Fire-and-forget POST to /log-event so the dashboard reflects live activity.
+function pushEvent(payload) {
+  fetch(PHISHING_API + "/log-event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch(function() {}); // Silently ignore if dashboard isn't open
+}
+
 // ── Message handler ───────────────────────────────────────────────────────────
 //
 // Content scripts send messages here when they detect a threat.
@@ -69,9 +79,18 @@ async function checkTabUrl(url, tabId) {
     if (threatData.threat_type) {
       handleThreatDetected(threatData, { id: tabId });
     } else {
-      // Safe — set green badge
+      // Safe — set green badge and push safe event to dashboard
       setBadge(tabId, "OK", BADGE_SAFE);
       clearLastThreat();
+      pushEvent({
+        type: "url_check",
+        url: url,
+        verdict: "SAFE",
+        risk_score: threatData.risk_score || 0,
+        threat_type: null,
+        severity: "low",
+        latency_ms: threatData.latency_ms || 0,
+      });
     }
 
   } catch {
@@ -93,6 +112,17 @@ function handleThreatDetected(threatData, tab) {
 
   // Persist threat so the popup can show it when the user clicks the badge
   chrome.storage.local.set({ drift_last_threat: threatData });
+
+  // Push to dashboard
+  pushEvent({
+    type: "url_check",
+    url: threatData.url || "unknown",
+    verdict: threatData.verdict || "PHISHING",
+    risk_score: threatData.risk_score || 0,
+    threat_type: threatData.threat_type,
+    severity: threatData.severity || "high",
+    latency_ms: threatData.latency_ms || 0,
+  });
 
   // Show a native OS notification with the top 2 remedy steps
   showNativeNotification(threatData);

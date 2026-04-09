@@ -1,40 +1,30 @@
 /**
- * content.js — Drift Analyzer URL Interceptor
+ * content.js — Drift Analyzer URL Interceptor + Credential Protection
  *
- * Intercepts all link clicks on the page and sends the destination URL
- * to the Drift Analyzer phishing API before allowing navigation.
+ * 1. Intercepts all link clicks — checks URL against phishing API before navigation.
+ * 2. Intercepts all login form submissions — if the CURRENT PAGE is phishing/suspicious,
+ *    blocks the submit and shows an OTP protective overlay.
  *
- * If the URL is PHISHING or SUSPICIOUS:
- *   - Navigation is blocked
- *   - An inline warning banner is shown with the threat verdict and top remedy steps
- *   - The background script is notified to show a native OS notification
- *
- * If SAFE: navigation proceeds normally (zero user friction on safe clicks).
- *
- * Privacy: only the URL is sent to localhost — nothing leaves the device.
+ * Privacy: only URLs are sent to localhost — nothing leaves your device.
  */
 
 const PHISHING_API = "http://localhost:5050";
 
-// Cache recently checked URLs so we don't re-check the same link repeatedly.
-// Map<url, threatData> — limited to 200 entries to avoid memory bloat.
+// Cache recently checked URLs — Map<url, threatData>, max 200 entries.
 const URL_CACHE = new Map();
 const CACHE_MAX_SIZE = 200;
 
-// Only analyse http and https URLs — skip javascript:, data:, #anchors, etc.
 const SAFE_SCHEMES = new Set(["http:", "https:"]);
-
-const BANNER_DISMISS_DELAY_MS = 10000;  // Auto-dismiss warning banner after 10 seconds
+const BANNER_DISMISS_DELAY_MS = 10000;
 const BANNER_ELEMENT_ID = "drift-analyzer-banner";
 
-// ── Cache helpers ─────────────────────────────────────────────────────────────
+// ── Cache helpers ──────────────────────────────────────────────────────────────
 
 function cacheGet(url) {
   return URL_CACHE.get(url) || null;
 }
 
 function cacheSet(url, threatData) {
-  // Evict the oldest entry if we're at the size limit
   if (URL_CACHE.size >= CACHE_MAX_SIZE) {
     const oldestKey = URL_CACHE.keys().next().value;
     URL_CACHE.delete(oldestKey);
@@ -42,7 +32,7 @@ function cacheSet(url, threatData) {
   URL_CACHE.set(url, threatData);
 }
 
-// ── API call ─────────────────────────────────────────────────────────────────
+// ── API call ───────────────────────────────────────────────────────────────────
 
 async function checkUrlThreat(url) {
   const cached = cacheGet(url);
@@ -60,7 +50,7 @@ async function checkUrlThreat(url) {
     const threatData = await response.json();
     cacheSet(url, threatData);
 
-    // Update session stats in storage so the popup can display them
+    // Update session stats in chrome.storage for the popup display
     chrome.storage.local.get("drift_stats", function(result) {
       const stats = result.drift_stats || { total: 0, threats: 0 };
       stats.total += 1;
@@ -71,12 +61,11 @@ async function checkUrlThreat(url) {
     return threatData;
 
   } catch {
-    // API unreachable — fail open (allow navigation) rather than blocking the user
-    return null;
+    return null; // API unreachable — fail open
   }
 }
 
-// ── Warning banner ────────────────────────────────────────────────────────────
+// ── Warning banner ─────────────────────────────────────────────────────────────
 
 function removeBanner() {
   const existing = document.getElementById(BANNER_ELEMENT_ID);
@@ -92,27 +81,20 @@ function showWarningBanner(threatData) {
   const threatLabel = (threatData.threat_type || "threat").replace(/_/g, " ").toUpperCase();
   const scorePercent = Math.round((threatData.risk_score || 0) * 100);
 
-  // Build top 2 remedy steps for the inline banner (full list is in the popup)
   const topRemedies = (threatData.remedy_steps || []).slice(0, 2);
 
   const banner = document.createElement("div");
   banner.id = BANNER_ELEMENT_ID;
   banner.style.cssText = [
-    "position: fixed",
-    "top: 0",
-    "left: 0",
-    "right: 0",
+    "position: fixed", "top: 0", "left: 0", "right: 0",
     "z-index: 2147483647",
     "background: " + backgroundColor,
-    "color: #fff",
-    "font-family: system-ui, sans-serif",
+    "color: #fff", "font-family: system-ui, sans-serif",
     "padding: 12px 16px",
     "box-shadow: 0 2px 12px rgba(0,0,0,.5)",
-    "font-size: 13px",
-    "line-height: 1.5",
+    "font-size: 13px", "line-height: 1.5",
   ].join("; ");
 
-  // Build banner using DOM APIs so user-controlled text is never interpreted as HTML
   const row = document.createElement("div");
   row.style.cssText = "display:flex;align-items:flex-start;gap:10px";
 
@@ -143,7 +125,7 @@ function showWarningBanner(threatData) {
     ol.style.cssText = "margin:6px 0 0;padding-left:18px;opacity:.9";
     topRemedies.forEach(function(step) {
       const li = document.createElement("li");
-      li.textContent = step;  // textContent prevents XSS — never use innerHTML here
+      li.textContent = step;
       ol.appendChild(li);
     });
     bodyDiv.appendChild(ol);
@@ -167,7 +149,7 @@ function showWarningBanner(threatData) {
   setTimeout(removeBanner, BANNER_DISMISS_DELAY_MS);
 }
 
-// ── Click interceptor ─────────────────────────────────────────────────────────
+// ── Click interceptor ──────────────────────────────────────────────────────────
 
 document.addEventListener("click", async function(event) {
   const anchor = event.target.closest("a[href]");
@@ -176,143 +158,257 @@ document.addEventListener("click", async function(event) {
   const href = anchor.href;
   if (!href) return;
 
-  // Only intercept http/https links
   let parsedUrl;
   try {
     parsedUrl = new URL(href);
     if (!SAFE_SCHEMES.has(parsedUrl.protocol)) return;
   } catch {
-    return;  // Malformed URL — let the browser handle it
+    return;
   }
 
-  // Hold navigation while we check the URL
   event.preventDefault();
 
   const threatData = await checkUrlThreat(href);
 
   if (!threatData) {
-    // API unreachable — navigate normally so we never block the user unnecessarily
     window.location.href = href;
     return;
   }
 
   if (threatData.threat_type) {
-    // Threat found — show inline banner and notify the background script
     showWarningBanner(threatData);
-
-    // Tell the background script so it can show a native OS notification
-    // and update the extension badge colour
     chrome.runtime.sendMessage({
       type: "THREAT_DETECTED",
       payload: threatData,
     });
   } else {
-    // Safe — navigate programmatically
     window.location.href = href;
   }
 
-}, true);  // Capture phase — intercepts before the browser handles the click
+}, true);
 
-// ── Credential Protection (Drift Analyzer SaaS) ───────────────────────────────
+// ── Credential Protection ──────────────────────────────────────────────────────
+//
+// When a login form is submitted, we check the CURRENT PAGE URL — not the
+// password value. If the page itself is flagged PHISHING or SUSPICIOUS, the
+// user's credentials are already at risk. We block the submission and show
+// an OTP protective overlay to simulate secure account recovery.
 
-async function checkCredential(password) {
-  try {
-    const resp = await fetch("http://localhost:5050/check-credential", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    if (!resp.ok) return false;
-    const data = await resp.json();
-    return data.verdict === "COMPROMISED";
-  } catch {
-    return false;
-  }
+function reportCredentialCompromise(url) {
+  // Log a compromised-credential event to the dashboard
+  fetch(PHISHING_API + "/check-credential", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: "__phishing_page__", url: url }),
+  }).catch(function() {});
 }
 
-function showOTPIntervention(form) {
+function showOTPIntervention(threatData) {
+  const existing = document.getElementById("drift-analyzer-otp-overlay");
+  if (existing) existing.remove();
+
+  const isPhishing = (threatData && threatData.verdict || "").toUpperCase() === "PHISHING";
+  const riskPct = Math.round((threatData && threatData.risk_score || 0.9) * 100);
+
+  // ── Overlay container ──
   const overlay = document.createElement("div");
   overlay.id = "drift-analyzer-otp-overlay";
-  overlay.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    z-index: 2147483647; display: flex; justify-content: center; align-items: center;
-    font-family: 'Inter', system-ui, sans-serif;
-  `;
-  
-  overlay.innerHTML = `
-    <div style="background: #1e293b; padding: 40px; border-radius: 16px; width: 400px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); text-align: center; border: 1px solid #334155; animation: szScaleIn 0.3s ease-out;">
-      <style>@keyframes szScaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style>
-      <div style="background: rgba(59, 130, 246, 0.1); width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-        <span style="font-size: 32px;">🛡️</span>
-      </div>
-      <h2 style="color: #f8fafc; margin: 0 0 12px; font-size: 20px; font-weight: 600;">Credential Protection</h2>
-      <p style="color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 24px;">
-        Drift Analyzer detected your password was involved in a third-party data breach.<br/><br/>
-        We have secured your session. Please verify your identity via the SMS code sent to your phone to proceed to a secure password reset.
-      </p>
-      
-      <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 24px;" id="otp-inputs">
-        <input type="text" maxlength="1" class="otp-box" style="width: 48px; height: 56px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 24px; text-align: center; font-weight: 600;" autofocus />
-        <input type="text" maxlength="1" class="otp-box" style="width: 48px; height: 56px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 24px; text-align: center; font-weight: 600;" />
-        <input type="text" maxlength="1" class="otp-box" style="width: 48px; height: 56px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 24px; text-align: center; font-weight: 600;" />
-        <input type="text" maxlength="1" class="otp-box" style="width: 48px; height: 56px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-size: 24px; text-align: center; font-weight: 600;" />
-      </div>
-      
-      <p id="otp-error" style="color: #ef4444; font-size: 13px; margin-top: -12px; margin-bottom: 12px; display: none;">Invalid Code. Try again.</p>
+  overlay.style.cssText = [
+    "position:fixed", "top:0", "left:0", "width:100vw", "height:100vh",
+    "background:rgba(8,12,24,0.93)", "backdrop-filter:blur(10px)",
+    "-webkit-backdrop-filter:blur(10px)", "z-index:2147483647",
+    "display:flex", "justify-content:center", "align-items:center",
+    "font-family:'Inter',system-ui,sans-serif",
+  ].join(";");
 
-      <button id="verify-btn" style="width: 100%; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s;">
-        Verify Identity
-      </button>
-    </div>
-  `;
-  
+  // ── Card ──
+  const card = document.createElement("div");
+  card.style.cssText = [
+    "background:#0f172a", "padding:40px", "border-radius:20px", "width:420px",
+    "max-width:94vw",
+    "box-shadow:0 32px 64px rgba(0,0,0,0.8),0 0 0 1px rgba(239,68,68,0.25)",
+    "text-align:center", "border:1px solid #1e293b",
+    "animation:driftPop 0.3s cubic-bezier(0.34,1.56,0.64,1) both",
+  ].join(";");
+
+  // Keyframe style
+  const style = document.createElement("style");
+  style.textContent = "@keyframes driftPop{from{transform:scale(0.88) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}";
+  document.head.appendChild(style);
+
+  // ── Icon ──
+  const iconWrap = document.createElement("div");
+  iconWrap.id = "drift-icon-wrap";
+  iconWrap.style.cssText = "background:rgba(239,68,68,0.12);width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;border:2px solid rgba(239,68,68,0.3);transition:all 0.4s;";
+  const iconEmoji = document.createElement("span");
+  iconEmoji.style.fontSize = "34px";
+  iconEmoji.textContent = "\uD83D\uDEA8"; // 🚨
+  iconWrap.appendChild(iconEmoji);
+
+  // ── Title ──
+  const title = document.createElement("h2");
+  title.id = "drift-otp-title";
+  title.style.cssText = "color:#f8fafc;margin:0 0 10px;font-size:21px;font-weight:700;letter-spacing:-0.3px;";
+  title.textContent = "Credential Risk Detected";
+
+  // ── Risk badge ──
+  const badge = document.createElement("div");
+  badge.style.cssText = "display:inline-block;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);color:#ef4444;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:100px;margin-bottom:18px;letter-spacing:0.5px;";
+  badge.textContent = (isPhishing ? "PHISHING SITE" : "SUSPICIOUS SITE") + " \u2014 " + riskPct + "% RISK";
+
+  // ── Message ──
+  const msg = document.createElement("p");
+  msg.id = "drift-otp-msg";
+  msg.style.cssText = "color:#94a3b8;font-size:14px;line-height:1.65;margin:0 0 26px;";
+  const siteType = isPhishing ? "phishing site" : "suspicious site";
+  const strong = document.createElement("strong");
+  strong.style.color = "#ef4444";
+  strong.textContent = siteType;
+  msg.appendChild(document.createTextNode("Drift Analyzer detected this is a "));
+  msg.appendChild(strong);
+  msg.appendChild(document.createTextNode(".\n\nYour credentials are at risk. Login blocked. Verify your identity to receive secure recovery steps."));
+  msg.style.whiteSpace = "pre-wrap";
+
+  // ── OTP boxes ──
+  const otpRow = document.createElement("div");
+  otpRow.id = "otp-inputs";
+  otpRow.style.cssText = "display:flex;gap:10px;justify-content:center;margin-bottom:20px;";
+  const inputs = [];
+  [0, 1, 2, 3].forEach(function(i) {
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.inputMode = "numeric";
+    inp.maxLength = 1;
+    inp.setAttribute("data-idx", i);
+    inp.style.cssText = "width:54px;height:62px;background:#1e293b;border:2px solid #334155;border-radius:12px;color:#f8fafc;font-size:28px;text-align:center;font-weight:700;outline:none;transition:border-color 0.2s,box-shadow 0.2s;";
+    inputs.push(inp);
+    otpRow.appendChild(inp);
+  });
+
+  // ── Error ──
+  const errMsg = document.createElement("p");
+  errMsg.id = "drift-otp-error";
+  errMsg.style.cssText = "color:#ef4444;font-size:13px;margin:-6px 0 14px;display:none;font-weight:500;";
+  errMsg.textContent = "Incorrect code. Hint: it was sent to your device.";
+
+  // ── Button ──
+  const btn = document.createElement("button");
+  btn.id = "drift-verify-btn";
+  btn.style.cssText = "width:100%;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;padding:15px;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer;transition:opacity 0.2s;letter-spacing:0.3px;";
+  btn.textContent = "\uD83D\uDD12 Verify & Secure Account"; // 🔒
+  btn.addEventListener("mouseenter", function() { btn.style.opacity = "0.88"; });
+  btn.addEventListener("mouseleave", function() { btn.style.opacity = "1"; });
+
+  // ── Footer ──
+  const footer = document.createElement("p");
+  footer.style.cssText = "color:#3f5275;font-size:11px;margin-top:16px;";
+  footer.textContent = "Protected by Drift Analyzer \u00B7 Never share this code";
+
+  // Assemble card
+  card.appendChild(iconWrap);
+  card.appendChild(title);
+  card.appendChild(badge);
+  card.appendChild(msg);
+  card.appendChild(otpRow);
+  card.appendChild(errMsg);
+  card.appendChild(btn);
+  card.appendChild(footer);
+  overlay.appendChild(card);
   document.body.appendChild(overlay);
 
-  const inputs = overlay.querySelectorAll('.otp-box');
-  inputs.forEach((input, index) => {
-    input.addEventListener('keyup', (e) => {
-      if (e.key >= '0' && e.key <= '9') {
-        if (index < inputs.length - 1) inputs[index + 1].focus();
-      } else if (e.key === 'Backspace') {
-        if (index > 0) inputs[index - 1].focus();
+  // ── OTP interaction ──
+  inputs.forEach(function(inp, idx) {
+    inp.addEventListener("focus", function() {
+      inp.style.borderColor = "#3b82f6";
+      inp.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.2)";
+    });
+    inp.addEventListener("blur", function() {
+      inp.style.borderColor = "#334155";
+      inp.style.boxShadow = "none";
+    });
+    inp.addEventListener("input", function() {
+      inp.value = inp.value.replace(/\D/g, "").slice(-1);
+      if (inp.value && idx < inputs.length - 1) {
+        inputs[idx + 1].focus();
       }
+    });
+    inp.addEventListener("keydown", function(e) {
+      if (e.key === "Backspace" && !inp.value && idx > 0) {
+        inputs[idx - 1].focus();
+      }
+      if (e.key === "Enter") btn.click();
     });
   });
 
-  overlay.querySelector('#verify-btn').addEventListener('click', () => {
-    const code = Array.from(inputs).map(i => i.value).join('');
-    if (code === '1234') {
-      overlay.querySelector('h2').innerText = "Identity Verified";
-      overlay.querySelector('p').innerText = "Redirecting you to the secure password reset portal...";
-      overlay.querySelector('#otp-inputs').style.display = 'none';
-      overlay.querySelector('#verify-btn').style.display = 'none';
-      overlay.querySelector('#otp-error').style.display = 'none';
-      
-      setTimeout(() => {
-        overlay.remove();
-        alert("Success! You've been protected by Drift Analyzer and can now securely reset your password.");
-      }, 2000);
+  // ── Verify click ──
+  btn.addEventListener("click", function() {
+    const code = inputs.map(function(i) { return i.value; }).join("");
+    if (code === "1234") {
+      // Success
+      iconEmoji.textContent = "\u2705"; // ✅
+      iconWrap.style.background = "rgba(34,197,94,0.12)";
+      iconWrap.style.borderColor = "rgba(34,197,94,0.3)";
+      title.textContent = "\u2705 Identity Verified";
+      msg.style.whiteSpace = "normal";
+      msg.innerHTML = "Your identity has been confirmed.<br/><br/><strong style='color:#22c55e'>Redirecting to a secure password reset portal&hellip;</strong>";
+      otpRow.style.display = "none";
+      btn.style.display = "none";
+      errMsg.style.display = "none";
+      badge.style.background = "rgba(34,197,94,0.1)";
+      badge.style.borderColor = "rgba(34,197,94,0.35)";
+      badge.style.color = "#22c55e";
+      badge.textContent = "ACCOUNT SECURED";
+      setTimeout(function() { overlay.remove(); }, 2800);
     } else {
-      overlay.querySelector('#otp-error').style.display = 'block';
+      // Wrong code
+      errMsg.style.display = "block";
+      inputs.forEach(function(i) {
+        i.value = "";
+        i.style.borderColor = "#ef4444";
+        i.style.boxShadow = "0 0 0 3px rgba(239,68,68,0.2)";
+        setTimeout(function() {
+          i.style.borderColor = "#334155";
+          i.style.boxShadow = "none";
+        }, 700);
+      });
+      inputs[0].focus();
     }
   });
+
+  setTimeout(function() { inputs[0].focus(); }, 120);
 }
 
-document.addEventListener("submit", async (event) => {
+// ── Form submit interceptor ────────────────────────────────────────────────────
+//
+// Fires on any form with a password field. Checks the CURRENT PAGE URL:
+// - If PHISHING or SUSPICIOUS → show credential warning + OTP overlay
+// - If SAFE → allow the form to submit normally
+
+document.addEventListener("submit", async function(event) {
   const form = event.target;
   const passwordInput = form.querySelector('input[type="password"]');
   if (!passwordInput || !passwordInput.value) return;
 
-  const password = passwordInput.value;
-  
   event.preventDefault();
+  event.stopImmediatePropagation();
 
-  const isCompromised = await checkCredential(password);
-  
-  if (isCompromised) {
-    showOTPIntervention(form);
+  const currentUrl = window.location.href;
+  const threatData = await checkUrlThreat(currentUrl);
+
+  const isRiskyPage = threatData &&
+    (threatData.verdict === "PHISHING" || threatData.verdict === "SUSPICIOUS");
+
+  if (isRiskyPage) {
+    reportCredentialCompromise(currentUrl);
+    try {
+      chrome.runtime.sendMessage({
+        type: "THREAT_DETECTED",
+        payload: Object.assign({}, threatData, { threat_type: "compromised_credential" }),
+      });
+    } catch (ignored) {}
+    showOTPIntervention(threatData);
   } else {
     form.submit();
   }
+
 }, true);

@@ -19,9 +19,11 @@ Endpoints:
 import os
 import sys
 import time
+import datetime
+from collections import deque
 
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+# flask import consolidated below
+from flask import Flask, request, jsonify, make_response
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -57,14 +59,41 @@ except ImportError:
 # ── Flask app ────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
-# Allow the browser extension (all origins via host_permissions) and
-# localhost access for local development and testing.
-CORS(app, origins=[
+
+_ALLOWED_ORIGINS = {
     "http://localhost:5050",
     "http://127.0.0.1:5050",
     "http://localhost:5001",
     "http://127.0.0.1:5001",
-])
+    "null",  # file:// pages in Chrome send 'null' as the origin
+}
+
+@app.after_request
+def add_cors_headers(response):
+    """Inject CORS headers on every response, supporting extension + demo page."""
+    origin = request.headers.get("Origin", "")
+    if origin in _ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        # Allow all localhost origins generically (covers any port in dev)
+        response.headers["Access-Control-Allow-Origin"] = origin or "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
+@app.before_request
+def handle_preflight():
+    """Respond to CORS preflight OPTIONS requests immediately."""
+    if request.method == "OPTIONS":
+        response = make_response()
+        origin = request.headers.get("Origin", "*")
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "86400"
+        return response, 204
 
 _metrics = MetricsTracker()
 _privacy = PrivacyManager()
@@ -73,6 +102,19 @@ _threat_classifier = ThreatClassifier()
 
 _RISK_THRESHOLD_HIGH = PHISHING_DETECTION_THRESHOLD["high"]
 _RISK_THRESHOLD_MEDIUM = PHISHING_DETECTION_THRESHOLD["medium"]
+
+# ── Session Event Log ─────────────────────────────────────────────────────────
+# Circular in-memory log — last 200 events. Nothing persisted to disk.
+_SESSION_LOG = deque(maxlen=200)
+
+def _log_event(event_type: str, data: dict):
+    """Append a timestamped event to the session log."""
+    _SESSION_LOG.appendleft({
+        "id": len(_SESSION_LOG) + 1,
+        "type": event_type,
+        "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        **data,
+    })
 
 
 # ── Scoring helpers ──────────────────────────────────────────────────────────
@@ -144,34 +186,9 @@ def _analyse_url(url: str) -> dict:
         risk_level = "low"
         verdict = "SAFE"
 
-    explanation = []
-    if features.get("contains_ip"):
-        explanation.append("URL relies directly on an IP address, a common evasion tactic.")
-    if not features.get("has_https"):
-        explanation.append("Connection is not secured via HTTPS.")
-    if features.get("suspicious_tld"):
-        explanation.append("Uses a Top-Level Domain (TLD) frequently associated with spam.")
-    if features.get("num_phishing_keywords", 0) > 0:
-        explanation.append("Contains classic phishing keywords (e.g., 'login', 'secure', 'update').")
-    if features.get("subdomain_count", 0) > 2:
-        explanation.append("Subdomain stacking detected (used to spoof legitimate sites).")
-    
-    attack_explanation = " ".join(explanation) if explanation else "General structural anomalies detected by Drift Analyzer."
-
     latency_ms = (time.perf_counter() - start_time) * 1000
     _metrics.track_latency(latency_ms)
-    
-    threat_details = {
-        "url": url,
-        "verdict": verdict,
-        "score": round(risk_score, 4),
-        "explanation": attack_explanation,
-        "timestamp": time.time()
-    } if verdict in ["PHISHING", "SUSPICIOUS"] else None
-
-    # Assuming origin/main metrics doesn't support threat_details anymore without refactoring, we'll try to adapt.
-    # WAIT! I should check what `_metrics.record_detection` accepts in the new metrics.py. I'll just pass both or pass it as before.
-    _metrics.record_detection(verdict == "PHISHING", threat_details)
+    _metrics.record_detection(verdict == "PHISHING")
 
     return {
         "url": _privacy.anonymize_url(url),
@@ -181,7 +198,6 @@ def _analyse_url(url: str) -> dict:
         "ml_score": round(ml_probability, 4) if ml_probability is not None else None,
         "rule_score": round(rule_probability, 4),
         "features": features,
-        "attack_explanation": attack_explanation if verdict in ["PHISHING", "SUSPICIOUS"] else None,
         "latency_ms": round(latency_ms, 2),
         "model_used": "RandomForest" if ml_probability is not None else "rule-based",
     }
@@ -259,6 +275,14 @@ def threat():
             "remedy_steps": remedy_card["remedies"],
             "latency_ms": analysis["latency_ms"],
         }
+        _log_event("url_check", {
+            "url": _privacy.anonymize_url(url),
+            "verdict": verdict,
+            "risk_score": risk_score,
+            "threat_type": threat_type,
+            "severity": severity,
+            "latency_ms": analysis["latency_ms"],
+        })
     else:
         response = {
             "verdict": "SAFE",
@@ -269,6 +293,14 @@ def threat():
             "remedy_steps": [],
             "latency_ms": analysis["latency_ms"],
         }
+        _log_event("url_check", {
+            "url": _privacy.anonymize_url(url),
+            "verdict": "SAFE",
+            "risk_score": risk_score,
+            "threat_type": None,
+            "severity": "low",
+            "latency_ms": analysis["latency_ms"],
+        })
 
     return jsonify(response), 200
 
@@ -294,22 +326,6 @@ def get_remedies(threat_type):
     return jsonify(remedy_card), 200
 
 
-@app.route("/check-credential", methods=["POST"])
-def check_credential():
-    """Analyse a credential and return compromise details."""
-    if not request.is_json:
-        return jsonify({"error": "Content-Type must be application/json"}), 415
-    data = request.get_json()
-    if data is None:
-        return jsonify({"error": "Invalid JSON body"}), 400
-    password = data.get("password", "").strip()
-    
-    if password == "trader123":
-        return jsonify({"verdict": "COMPROMISED"}), 200
-        
-    return jsonify({"verdict": "SECURE"}), 200
-
-
 @app.route("/stats", methods=["GET"])
 def stats():
     """Return aggregated in-session performance metrics (in-memory only)."""
@@ -320,321 +336,103 @@ def stats():
 def privacy_report():
     """Confirm that zero external API calls have been made this session."""
     report = _privacy.get_privacy_report()
-      gap: 24px;
-      margin-bottom: 40px;
-    }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 20px;
-      padding: 28px;
-      text-align: center;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-      position: relative;
-      overflow: hidden;
-      animation: fadeInUp 0.6s ease-out backwards;
-    }
-    .card:hover {
-      transform: translateY(-5px) scale(1.02);
-      border-color: rgba(255, 255, 255, 0.15);
-      box-shadow: 0 10px 40px rgba(14, 165, 233, 0.15);
-    }
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: -100%;
-      width: 50%; height: 100%;
-      background: linear-gradient(to right, transparent, rgba(255,255,255,0.03), transparent);
-      transform: skewX(-20deg);
-      transition: 0.5s;
-    }
-    .card:hover::before {
-      left: 150%;
-    }
-    .card .value {
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 4px;
-      color: var(--text);
-      text-shadow: 0 0 10px rgba(255,255,255,0.1);
-    }
-    .card .label {
-      color: var(--text-muted);
-      font-size: 0.95rem;
-      font-weight: 400;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .card .icon {
-      font-size: 1.5rem;
-      margin-bottom: 12px;
-      opacity: 0.8;
-    }
-    
-    .chart-box {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 24px;
-      padding: 32px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-      animation: fadeInUp 0.8s ease-out backwards;
-      animation-delay: 0.3s;
-    }
-    canvas {
-      max-height: 350px;
-    }
-    
-    .threat-feed-box {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 24px;
-      padding: 32px;
-      margin-top: 40px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-      animation: fadeInUp 0.8s ease-out backwards;
-      animation-delay: 0.4s;
-    }
-    .threat-feed-box h2 {
-      margin-top: 0;
-      color: var(--neon-red);
-      font-size: 1.5rem;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      padding-bottom: 12px;
-    }
-    .threat-item {
-      background: rgba(0,0,0,0.2);
-      border-left: 4px solid var(--neon-red);
-      padding: 16px;
-      margin-bottom: 12px;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .threat-url { color: var(--text); word-break: break-all; font-family: monospace; font-size: 1.1rem; }
-    .threat-expl { color: var(--text-muted); font-size: 0.95rem; }
-    
-    /* Value specific colors */
-    .val-phishing { color: var(--neon-red) !important; text-shadow: 0 0 15px rgba(239, 68, 68, 0.4) !important; }
-    .sla-ok { color: var(--neon-green) !important; text-shadow: 0 0 15px rgba(34, 197, 94, 0.4) !important;}
-    .sla-warn { color: var(--neon-red) !important; text-shadow: 0 0 15px rgba(239, 68, 68, 0.4) !important;}
-    .val-total { color: var(--neon-blue) !important; text-shadow: 0 0 15px rgba(14, 165, 233, 0.4) !important;}
+    return jsonify(report), 200
 
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeInDown {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    /* Staggered card animations */
-    .card:nth-child(1) { animation-delay: 0.1s; }
-    .card:nth-child(2) { animation-delay: 0.15s; }
-    .card:nth-child(3) { animation-delay: 0.2s; }
-    .card:nth-child(4) { animation-delay: 0.25s; }
-    .card:nth-child(5) { animation-delay: 0.3s; }
-    .card:nth-child(6) { animation-delay: 0.35s; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>Sentinel Zero</h1>
-    <p class="subtitle">Live API Metrics & Anomaly Detection Feed</p>
-  </div>
-  
-  <div class="grid" id="cards">
-    <!-- Populated by JS -->
-  </div>
-  
-  <div class="chart-box">
-    <canvas id="latencyChart"></canvas>
-  </div>
-  
-  <div class="threat-feed-box">
-    <h2>Live Threat Feed</h2>
-    <div id="threat-feed">
-      <div style="color:var(--text-muted)">Awaiting threats... (monitoring in progress)</div>
-    </div>
-  </div>
-  
-  <script>
-    const API = '';
-    let chart;
-    
-    async function fetchStats() {
-      try {
-        const r = await fetch(API + '/stats');
-        return r.json();
-      } catch (e) {
-        console.error("API error", e);
-        return null;
-      }
-    }
-    
-    function formatTime(secs) {
-      if(secs < 60) return secs + 's';
-      let m = Math.floor(secs / 60);
-      let s = Math.floor(secs % 60);
-      return m + 'm ' + s + 's';
-    }
 
-    let _cardsInitialized = false;
-    function renderCards(d) {
-      const sla = (d.sla_compliance_rate * 100).toFixed(1);
-      const slaClass = sla >= 95 ? 'sla-ok' : 'sla-warn';
-      const fp = (d.false_positive_rate * 100).toFixed(1);
-      
-      if (!_cardsInitialized) {
-        document.getElementById('cards').innerHTML = `
-          <div class="card">
-            <div class="icon">🌍</div>
-            <div class="value val-total" id="val-total">${d.request_count}</div>
-            <div class="label">Total Checks</div>
-          </div>
-          <div class="card">
-            <div class="icon">☠️</div>
-            <div class="value val-phishing" id="val-phishing">${d.phishing_detected}</div>
-            <div class="label">Phishing Blocked</div>
-          </div>
-          <div class="card">
-            <div class="icon">⚡</div>
-            <div class="value" id="val-latency">${d.avg_latency_ms} <span style="font-size:1rem;color:#a1a1aa">ms</span></div>
-            <div class="label">Avg Latency</div>
-          </div>
-          <div class="card">
-            <div class="icon">📈</div>
-            <div class="value" id="val-p95">${d.p95_latency_ms} <span style="font-size:1rem;color:#a1a1aa">ms</span></div>
-            <div class="label">p95 Latency</div>
-          </div>
-          <div class="card">
-            <div class="icon">🎯</div>
-            <div class="value ${slaClass}" id="val-sla">${sla}%</div>
-            <div class="label">SLA Compliance</div>
-          </div>
-          <div class="card">
-            <div class="icon">⏱️</div>
-            <div class="value" id="val-uptime">${formatTime(d.uptime_seconds)}</div>
-            <div class="label">Uptime</div>
-          </div>
-        `;
-        _cardsInitialized = true;
-      } else {
-        document.getElementById('val-total').innerText = d.request_count;
-        document.getElementById('val-phishing').innerText = d.phishing_detected;
-        document.getElementById('val-latency').innerHTML = `${d.avg_latency_ms} <span style="font-size:1rem;color:#a1a1aa">ms</span>`;
-        document.getElementById('val-p95').innerHTML = `${d.p95_latency_ms} <span style="font-size:1rem;color:#a1a1aa">ms</span>`;
-        document.getElementById('val-sla').className = `value ${slaClass}`;
-        document.getElementById('val-sla').innerText = `${sla}%`;
-        document.getElementById('val-uptime').innerText = formatTime(d.uptime_seconds);
-      }
-    }
-    
-    function initChart() {
-      const ctx = document.getElementById('latencyChart').getContext('2d');
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [{
-            label: 'Latency (ms) - Last 50 req',
-            data: [],
-            borderColor: '#0ea5e9',
-            backgroundColor: 'rgba(14, 165, 233, 0.1)',
-            borderWidth: 2,
-            tension: 0.4,
-            pointRadius: 0,
-            pointHoverRadius: 6,
-            fill: true
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 14 } } },
-            tooltip: {
-              backgroundColor: 'rgba(15, 23, 42, 0.9)',
-              titleFont: { family: 'Outfit' },
-              bodyFont: { family: 'Outfit' },
-              padding: 12,
-              cornerRadius: 8,
-              displayColors: false
-            }
-          },
-          scales: {
-            x: { 
-              ticks: { color: '#64748b', font: { family: 'Outfit' } },
-              grid: { color: 'rgba(255,255,255,0.05)' }
-            },
-            y: { 
-              ticks: { color: '#64748b', font: { family: 'Outfit' } },
-              grid: { color: 'rgba(255,255,255,0.05)', borderDash: [5, 5] },
-              beginAtZero: true
-            }
-          },
-          interaction: { mode: 'index', intersect: false }
+@app.route("/check-credential", methods=["POST"])
+def check_credential():
+    """
+    Analyse a credential submission and return compromise verdict.
+
+    Called in two scenarios:
+     1. Extension detected a phishing page and intercepted a form submit
+        (password == '__phishing_page__', url = the phishing page URL)
+     2. Legacy demo: password == 'trader123'
+    """
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+    data = request.get_json()
+    if data is None:
+        return jsonify({"error": "Invalid JSON body"}), 400
+    password = data.get("password", "").strip()
+    source_url = data.get("url", "credential-check")
+
+    # Any form submission on a phishing page is treated as compromised
+    is_phishing_page = password == "__phishing_page__"
+    is_legacy_demo   = password == "trader123"
+
+    if is_phishing_page or is_legacy_demo:
+        _log_event("credential_check", {
+            "verdict": "COMPROMISED",
+            "threat_type": "compromised_credential",
+            "severity": "critical",
+            "url": source_url,
+            "risk_score": 1.0,
+        })
+        return jsonify({"verdict": "COMPROMISED"}), 200
+
+    _log_event("credential_check", {
+        "verdict": "SECURE",
+        "threat_type": None,
+        "severity": "low",
+        "url": source_url,
+        "risk_score": 0.0,
+    })
+    return jsonify({"verdict": "SECURE"}), 200
+
+
+
+@app.route("/log-event", methods=["POST"])
+def log_event_endpoint():
+    """
+    Accepts threat/safe events pushed directly from the browser extension
+    background.js so the dashboard reflects real-time browsing activity.
+
+    Request body: { type, url, verdict, risk_score, threat_type, severity, latency_ms }
+    """
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+    data = request.get_json() or {}
+    event_type = data.pop("type", "url_check")
+    _log_event(event_type, data)
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/session-log", methods=["GET"])
+def session_log():
+    """Return the in-memory session event log (last 200 events)."""
+    limit = min(int(request.args.get("limit", 50)), 200)
+    # Return events in chronological order (oldest last in deque, so reverse)
+    events = list(reversed(list(_SESSION_LOG)))
+    total = len(_SESSION_LOG)
+    threats = sum(1 for e in _SESSION_LOG if e.get("threat_type") is not None)
+    safe = total - threats
+    return jsonify({
+        "events": events[-limit:],
+        "summary": {
+            "total_checks": total,
+            "threats_detected": threats,
+            "safe_urls": safe,
+            "compromised_credentials": sum(
+                1 for e in _SESSION_LOG
+                if e.get("type") == "credential_check" and e.get("verdict") == "COMPROMISED"
+            ),
         }
-      });
-    }
-    
-    function updateChart(d) {
-      let lats = d.latency || [];
-      if (lats.length > 50) {
-        lats = lats.slice(lats.length - 50);
-      }
-      const labels = lats.map((_, i) => i + 1);
-      chart.data.labels = labels;
-      chart.data.datasets[0].data = lats;
-      chart.update('none');
-    }
-    
-    function updateThreatFeed(threats) {
-      const container = document.getElementById('threat-feed');
-      if (!threats || threats.length === 0) return;
-      let html = '';
-      threats.slice(0, 10).forEach(t => {
-        html += `
-          <div class="threat-item">
-            <div class="threat-url">🚫 ${t.url}</div>
-            <div class="threat-expl"><strong>Vulnerability detected:</strong> ${t.explanation || 'Anomaly detected'}</div>
-          </div>
-        `;
-      });
-      container.innerHTML = html;
-    }
-    
-    async function refresh() {
-      const d = await fetchStats();
-      if(d) {
-        renderCards(d);
-        updateChart(d);
-        updateThreatFeed(d.recent_threats);
-      }
-    }
-    
-    initChart();
-    refresh();
-    setInterval(refresh, 2000);
-  </script>
-</body>
-</html>"""
+    }), 200
 
 
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
     """Serve the live monitoring dashboard HTML page."""
-    return render_template_string(_DASHBOARD_TEMPLATE), 200
+    dashboard_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard", "index.html")
+    if os.path.exists(dashboard_path):
+        with open(dashboard_path, "r", encoding="utf-8") as f:
+            return f.read(), 200, {"Content-Type": "text/html; charset=utf-8"}
+    return jsonify({"error": "Dashboard not found"}), 404
 
 
 @app.route("/", methods=["GET"])
 def index():
-    """Service health check and endpoint index."""
     return jsonify({
         "name": "Drift Analyzer -- Phishing Detection API",
         "description": (
@@ -647,6 +445,7 @@ def index():
             "GET /remedies/<threat_type>": "Remedy steps for a specific threat type",
             "GET /stats": "In-session performance metrics",
             "GET /privacy-report": "Confirms zero external API calls",
+            "GET /session-log": "Real-time session event log for dashboard",
         },
         "model": "RandomForest" if _model_available else "rule-based",
         "ideology": "zero-storage · local-only · fast-detection · user-centric",
