@@ -1,5 +1,5 @@
 /**
- * popup.js — Sentinel Zero Extension Popup
+ * popup.js — Drift Analyzer Extension Popup
  */
 
 const API_BASE = "http://localhost:5050";
@@ -51,7 +51,7 @@ function setResult(state, data) {
   }
   if (state === "error") {
     resultBox.classList.add("suspicious");
-    resultBox.textContent = "⚠️ Could not reach Sentinel Zero API. Is it running?";
+    resultBox.textContent = "⚠️ Could not reach Drift Analyzer API. Is it running?";
     return;
   }
   if (state === "blocked") {
@@ -59,7 +59,7 @@ function setResult(state, data) {
     resultBox.textContent = "🚫 Check blocked by server (high-risk session). Please log in again.";
     return;
   }
-  const { verdict, risk_score, latency_ms } = data;
+  const { verdict, risk_score, latency_ms, attack_explanation } = data;
   const cssClass = verdict === "PHISHING" ? "phishing" : verdict === "SUSPICIOUS" ? "suspicious" : "safe";
   const emoji = verdict === "PHISHING" ? "🚫" : verdict === "SUSPICIOUS" ? "⚠️" : "✅";
   resultBox.classList.add(cssClass);
@@ -69,6 +69,7 @@ function setResult(state, data) {
       <span class="verdict-text">${verdict}</span>
     </div>
     <div class="score-row">Risk score: <strong>${(risk_score * 100).toFixed(1)}%</strong></div>
+    ${attack_explanation ? `<div style="font-size: 11px; margin-top:4px; color:rgba(255,255,255,0.7);">${attack_explanation}</div>` : ''}
     <div class="latency-row">Latency: ${latency_ms} ms</div>
   `;
 }
